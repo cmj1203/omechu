@@ -4,13 +4,23 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_imLZVtJYIhMLleQNG7zlPA_4cQkcUVa
 
 export const SUPABASE_CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
+const LIBRARY_TIMEOUT_MS = 8000;
+
 let clientPromise = null;
 
 export function getSupabase() {
 	if (!SUPABASE_CONFIGURED) {
 		return Promise.resolve(null);
 	}
-	clientPromise ??= import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")
-		.then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY));
+	clientPromise ??= Promise.race([
+		import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")
+			.then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)),
+		new Promise((_, reject) => {
+			setTimeout(() => reject(new Error("Supabase 라이브러리를 불러오지 못했어요.")), LIBRARY_TIMEOUT_MS);
+		}),
+	]).catch((error) => {
+		clientPromise = null;
+		throw error;
+	});
 	return clientPromise;
 }

@@ -1,0 +1,33 @@
+update public.menus as m set search_terms = m.search_terms || array(select unnest(v.terms) except select unnest(m.search_terms))
+from (values
+  ('김치찌개', array['kimchi jjigae']),
+  ('된장찌개', array['doenjang']),
+  ('순두부찌개', array['sundubu']),
+  ('부대찌개', array['budae']),
+  ('비빔밥', array['bibimbap']),
+  ('국밥', array['gukbap']),
+  ('설렁탕', array['seolleongtang']),
+  ('해장국', array['haejangguk']),
+  ('갈비탕', array['galbitang']),
+  ('냉면', array['naengmyeon']),
+  ('칼국수', array['kalguksu']),
+  ('김밥', array['gimbap', 'kimbap']),
+  ('불고기', array['bulgogi']),
+  ('삼겹살', array['samgyeopsal']),
+  ('닭갈비', array['dakgalbi']),
+  ('찜닭', array['jjimdak']),
+  ('감자탕', array['gamjatang']),
+  ('보쌈', array['bossam']),
+  ('떡볶이', array['tteokbokki', 'topokki']),
+  ('짜장면', array['jajang', 'jjajang']),
+  ('짬뽕', array['jjamppong', 'champon']),
+  ('마라탕', array['malatang']),
+  ('막걸리', array['makgeolli']),
+  ('파전', array['pajeon']),
+  ('곱창', array['gopchang']),
+  ('족발', array['jokbal']),
+  ('치킨', array['fried chicken']),
+  ('호떡', array['hotteok']),
+  ('빙수', array['bingsu'])
+) as v(name, terms)
+where m.name = v.name;

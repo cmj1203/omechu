@@ -182,8 +182,102 @@ body {
 	font-weight: 700;
 }
 
-.nearby-title {
+.nearby-note {
+	color: #b36b00;
+	font-size: 13px;
+}
+
+.restaurant-card {
+	margin: 12px auto 0;
+	padding: 14px 16px;
+	border: 1px solid #cfe0f1;
+	background: #f5f9fd;
+	text-align: left;
+}
+
+.restaurant-label {
+	margin: 0;
+	color: #1e73be;
+	font-size: 13px;
 	font-weight: 700;
+}
+
+.restaurant-name {
+	margin: 4px 0;
+	font-size: 22px;
+	font-weight: 800;
+}
+
+.restaurant-walk {
+	margin: 0 0 4px;
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.restaurant-info {
+	margin: 0 0 8px;
+	color: #555;
+	font-size: 13px;
+}
+
+.restaurant-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 8px 0 0;
+}
+
+#nearbyResult .restaurant-links a {
+	margin: 0;
+	padding: 6px 10px;
+	border: 1px solid #1e73be;
+	background: #fff;
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.others {
+	margin-top: 14px;
+	text-align: left;
+}
+
+.others-title {
+	margin: 0 0 4px;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.others ol {
+	margin: 0;
+	padding-left: 22px;
+}
+
+.others li {
+	padding: 6px 0;
+	border-bottom: 1px solid #eee;
+}
+
+#nearbyResult .others a {
+	margin: 0;
+	font-weight: 700;
+}
+
+.others span {
+	float: right;
+	color: #555;
+	font-size: 13px;
+}
+
+.nearby-footer {
+	margin: 12px 0 0;
+	color: #888;
+	font-size: 12px;
+}
+
+#nearbyResult .nearby-footer a {
+	margin: 0;
+	color: #888;
+	font-weight: 400;
 }
 
 .nearby-message {
@@ -345,6 +439,13 @@ body {
 
 .menu-table th {
 	border-bottom: 2px solid #444;
+}
+
+.menu-table td.terms {
+	min-width: 140px;
+	color: #555;
+	font-size: 13px;
+	white-space: normal;
 }
 
 @media (max-width: 480px) {

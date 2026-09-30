@@ -62,6 +62,7 @@ menuForm.addEventListener("submit", async (event) => {
 		cuisine: fields.get("cuisine"),
 		party: fields.getAll("party"),
 		times: fields.getAll("times"),
+		search_terms: fields.get("search_terms").split(",").map((term) => term.trim()).filter(Boolean),
 	};
 	if (!record.name || record.party.length === 0 || record.times.length === 0) {
 		setMessage(formMessage, "이름을 적고, 인원과 시간을 하나 이상 골라 주세요.", true);
@@ -109,7 +110,7 @@ async function openManager(user) {
 async function refreshList() {
 	const { data, error } = await supabase
 		.from("menus")
-		.select("id, name, kind, cuisine, party, times")
+		.select("id, name, kind, cuisine, party, times, search_terms")
 		.order("kind")
 		.order("cuisine")
 		.order("name");
@@ -117,7 +118,7 @@ async function refreshList() {
 		menuCount.textContent = "";
 		const row = document.createElement("tr");
 		const cell = textCell("메뉴를 불러오지 못했어요: " + error.message);
-		cell.colSpan = 6;
+		cell.colSpan = 7;
 		row.append(cell);
 		menuRows.replaceChildren(row);
 		return;
@@ -140,6 +141,7 @@ function menuRow(menu) {
 		textCell(menu.cuisine),
 		textCell(menu.party.join("·")),
 		textCell(menu.times.join("·")),
+		textCell(menu.search_terms.join(", "), "terms"),
 		actions,
 	);
 	return row;
@@ -150,6 +152,7 @@ function startEdit(menu) {
 	menuForm.elements.namedItem("name").value = menu.name;
 	menuForm.elements.namedItem("kind").value = menu.kind;
 	menuForm.elements.namedItem("cuisine").value = menu.cuisine;
+	menuForm.elements.namedItem("search_terms").value = menu.search_terms.join(", ");
 	for (const box of menuForm.querySelectorAll("input[name='party']")) {
 		box.checked = menu.party.includes(box.value);
 	}
@@ -187,8 +190,9 @@ async function removeMenu(menu) {
 	await refreshList();
 }
 
-function textCell(text) {
+function textCell(text, className = "") {
 	const cell = document.createElement("td");
+	cell.className = className;
 	cell.textContent = text;
 	return cell;
 }
