@@ -260,8 +260,7 @@ function bestMenu(place, filterMenus, recommended) {
 		if (!hasSearchTerm(name, candidate)) {
 			continue;
 		}
-		// 가게 이름에 메뉴 이름이 들어 있으면 더 맞는 메뉴예요. 둘 다 들어 있으면 긴 이름이 더 구체적이에요 (국밥보다 콩나물국밥).
-		const score = (name.includes(candidate.name.toLowerCase()) ? 2 + candidate.name.length / 100 : 1) + (candidate === recommended ? 0.5 : 0);
+		const score = (name.includes(candidate.name.toLowerCase()) ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
 		if (score > bestScore) {
 			best = candidate;
 			bestScore = score;
