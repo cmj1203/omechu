@@ -262,6 +262,15 @@ body {
 	font-weight: 700;
 }
 
+.menu-tag {
+	margin-left: 6px;
+	padding: 1px 6px;
+	background: #eef5fc;
+	color: #1e73be;
+	font-size: 12px;
+	font-style: normal;
+}
+
 .others span {
 	float: right;
 	color: #555;

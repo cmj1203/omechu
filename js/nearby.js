@@ -39,6 +39,7 @@ export function initNearby(section) {
 	const placeInput = section.querySelector("#nearbyPlace");
 	const result = section.querySelector("#nearbyResult");
 	let menu = null;
+	let filterMenus = [];
 	let searchId = 0;
 
 	button.addEventListener("click", () => {
@@ -53,8 +54,9 @@ export function initNearby(section) {
 	});
 
 	return {
-		async show(nextMenu) {
+		async show(nextMenu, menusForFilters) {
 			menu = nextMenu;
+			filterMenus = menusForFilters;
 			searchId += 1;
 			button.disabled = false;
 			button.textContent = idleLabel();
@@ -73,14 +75,15 @@ export function initNearby(section) {
 	async function findRestaurants() {
 		const id = ++searchId;
 		const target = menu;
+		const pool = filterMenus;
 		const place = placeInput.value.trim();
 		try {
 			setBusy(place ? "위치 찾는 중…" : "위치 확인 중…");
 			const origin = place ? await geocode(place) : await currentPosition();
 			setBusy("식당 찾는 중…");
-			const { restaurants, similar } = await searchRestaurants(target, origin);
+			const found = await searchRestaurants(target, pool, origin);
 			if (id === searchId) {
-				render(target, origin, restaurants, similar);
+				render(target, origin, found);
 			}
 		} catch (error) {
 			if (id === searchId) {
@@ -103,20 +106,20 @@ export function initNearby(section) {
 		button.textContent = label;
 	}
 
-	function render(target, origin, restaurants, similar) {
-		if (restaurants.length === 0) {
-			showMessage(origin.label + " 근처 2km 안에서 '" + target.name + "' 식당을 찾지 못했어요.", target, origin);
+	function render(target, origin, found) {
+		if (!found.pick) {
+			showMessage(origin.label + " 근처 2km 안에서 조건에 맞는 식당을 찾지 못했어요.", target, origin);
 			return;
 		}
-		const pick = restaurants[Math.floor(Math.random() * Math.min(RECOMMEND_FROM_NEAREST, restaurants.length))];
-		const others = restaurants.filter((restaurant) => restaurant !== pick).slice(0, MAX_OTHERS);
 		const nodes = [];
-		if (similar) {
-			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
+		if (found.mode === "filter") {
+			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은 조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
+		} else if (found.mode === "similar") {
+			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}
-		nodes.push(restaurantCard(pick, origin));
-		if (others.length > 0) {
-			nodes.push(othersList(others));
+		nodes.push(restaurantCard(found.pick, origin));
+		if (found.others.length > 0) {
+			nodes.push(othersList(found.others, found.mode === "similar" ? "다른 가까운 곳" : "조건에 맞는 다른 가까운 곳"));
 		}
 		nodes.push(footer(target, origin));
 		result.replaceChildren(...nodes);
@@ -168,41 +171,67 @@ async function geocode(place) {
 	return { label: place, lat: Number(first.lat), lng: Number(first.lon) };
 }
 
-async function searchRestaurants(menu, origin) {
+async function searchRestaurants(menu, filterMenus, origin) {
+	let forMenu;
+	let forFilters;
 	try {
-		return await searchDatabase(menu, origin);
+		[forMenu, forFilters] = await Promise.all([
+			searchDatabase(origin, [menu], similarFor(menu)),
+			searchDatabase(origin, filterMenus, null),
+		]);
 	} catch (error) {
 		console.warn("식당 DB에서 찾지 못해서 OpenStreetMap 공개 서버로 찾아요.", error);
+		forMenu = await searchOverpassForMenu(menu, origin);
+		forFilters = forMenu.filter((place) => place.matched);
 	}
-	const exact = await searchOverpass(menuQuery(menu, origin), origin);
+
+	const suitable = forFilters
+		.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, menu)?.name }))
+		.filter((place) => place.menuName);
+	const exact = forMenu
+		.filter((place) => place.matched)
+		.map((place) => ({ ...place, menuName: menu.name }));
 	if (exact.length > 0) {
-		return { restaurants: exact, similar: false };
+		const pick = pickNear(exact);
+		return { mode: "menu", pick, others: othersExcept(suitable, pick) };
 	}
-	return { restaurants: await searchOverpass(similarQuery(menu, origin), origin), similar: true };
+	if (suitable.length > 0) {
+		const pick = pickNear(suitable);
+		return { mode: "filter", pick, others: othersExcept(suitable, pick) };
+	}
+	const similar = forMenu.filter((place) => !place.matched);
+	if (similar.length > 0) {
+		const pick = pickNear(similar);
+		return { mode: "similar", pick, others: othersExcept(similar, pick) };
+	}
+	return { mode: "none", pick: null, others: [] };
 }
 
-async function searchDatabase(menu, origin) {
+async function searchDatabase(origin, menus, similar) {
 	const supabase = await getSupabase();
 	if (!supabase) {
 		throw new Error("Supabase 가 연결되지 않았어요.");
 	}
+	const kinds = [...new Set(menus.map((item) => item.kind))];
 	const { data, error } = await supabase
 		.rpc("nearby_places", {
 			p_lat: origin.lat,
 			p_lng: origin.lng,
 			p_radius: SEARCH_RADIUS_METERS,
-			p_terms: searchTerms(menu),
-			p_amenities: AMENITIES_BY_KIND[menu.kind],
-			p_shops: menu.kind === "간식" ? BAKERY_SHOPS : [],
-			p_similar_amenities: SIMILAR_AMENITIES_BY_KIND[menu.kind],
-			p_similar_cuisine: menu.kind === "식사" ? CUISINE_TAGS[menu.cuisine] : null,
+			p_terms: [...new Set(menus.flatMap(searchTerms))],
+			p_amenities: [...new Set(kinds.flatMap((kind) => AMENITIES_BY_KIND[kind]))],
+			p_shops: kinds.includes("간식") ? BAKERY_SHOPS : [],
+			p_similar_amenities: similar ? similar.amenities : [],
+			p_similar_cuisine: similar ? similar.cuisine : null,
 		})
 		.abortSignal(AbortSignal.timeout(8000));
 	if (error) {
 		throw error;
 	}
-	const rows = data.map((row) => ({
+	return data.map((row) => ({
 		name: row.name,
+		amenity: row.amenity,
+		shop: row.shop,
 		lat: row.lat,
 		lng: row.lng,
 		distance: row.distance,
@@ -211,14 +240,70 @@ async function searchDatabase(menu, origin) {
 		address: row.address ?? "",
 		matched: row.matched,
 	}));
-	const exact = rows.filter((row) => row.matched);
-	return exact.length > 0 ? { restaurants: exact, similar: false } : { restaurants: rows, similar: true };
+}
+
+function similarFor(menu) {
+	return {
+		amenities: SIMILAR_AMENITIES_BY_KIND[menu.kind],
+		cuisine: menu.kind === "식사" ? CUISINE_TAGS[menu.cuisine] : null,
+	};
+}
+
+function bestMenu(place, filterMenus, recommended) {
+	const name = place.name.toLowerCase();
+	let best = null;
+	let bestScore = 0;
+	for (const candidate of filterMenus) {
+		if (!fitsKind(candidate, place)) {
+			continue;
+		}
+		const byMenuName = name.includes(candidate.name.toLowerCase());
+		const byTerm = byMenuName || searchTerms(candidate).some((term) => name.includes(term.toLowerCase()));
+		if (!byTerm) {
+			continue;
+		}
+		const score = (byMenuName ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
+		if (score > bestScore) {
+			best = candidate;
+			bestScore = score;
+		}
+	}
+	return best;
+}
+
+function fitsKind(menu, place) {
+	return AMENITIES_BY_KIND[menu.kind].includes(place.amenity) || (menu.kind === "간식" && BAKERY_SHOPS.includes(place.shop));
+}
+
+function pickNear(places) {
+	return places[Math.floor(Math.random() * Math.min(RECOMMEND_FROM_NEAREST, places.length))];
+}
+
+function othersExcept(places, pick) {
+	const pickKey = placeKey(pick);
+	return places
+		.filter((place) => placeKey(place) !== pickKey)
+		.sort((a, b) => a.distance - b.distance)
+		.slice(0, MAX_OTHERS);
+}
+
+function placeKey(place) {
+	return place.name + "|" + place.lat.toFixed(5) + "|" + place.lng.toFixed(5);
 }
 
 function searchTerms(menu) {
 	return (menu.search_terms?.length ? menu.search_terms : [menu.name])
 		.map((term) => term.replace(/[\\^$.|?*+()[\]{}"%_]/g, ""))
 		.filter(Boolean);
+}
+
+async function searchOverpassForMenu(menu, origin) {
+	const exact = await searchOverpass(menuQuery(menu, origin), origin);
+	if (exact.length > 0) {
+		return exact.map((place) => ({ ...place, matched: true }));
+	}
+	const similar = await searchOverpass(similarQuery(menu, origin), origin);
+	return similar.map((place) => ({ ...place, matched: false }));
 }
 
 function menuQuery(menu, origin) {
@@ -282,6 +367,8 @@ function fromOverpass(element, origin) {
 	const distance = Math.round(distanceMeters(origin, { lat, lng }));
 	return {
 		name: tags.name,
+		amenity: tags.amenity,
+		shop: tags.shop,
 		lat,
 		lng,
 		distance,
@@ -312,7 +399,7 @@ function restaurantCard(restaurant, origin) {
 	const card = document.createElement("div");
 	card.className = "restaurant-card";
 	card.append(
-		paragraph("restaurant-label", "🍽️ 추천 식당"),
+		paragraph("restaurant-label", "🍽️ 추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
 		paragraph("restaurant-name", restaurant.name),
 		paragraph("restaurant-walk", "🚶 " + origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance)),
 	);
@@ -330,16 +417,23 @@ function restaurantCard(restaurant, origin) {
 	return card;
 }
 
-function othersList(restaurants) {
+function othersList(restaurants, title) {
 	const wrapper = document.createElement("div");
 	wrapper.className = "others";
-	wrapper.append(paragraph("others-title", "다른 가까운 곳"));
+	wrapper.append(paragraph("others-title", title));
 	const list = document.createElement("ol");
 	for (const restaurant of restaurants) {
 		const item = document.createElement("li");
 		const time = document.createElement("span");
 		time.textContent = "도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance);
-		item.append(link(restaurant.name, kakaoMapUrl(restaurant)), time);
+		item.append(link(restaurant.name, kakaoMapUrl(restaurant)));
+		if (restaurant.menuName) {
+			const tag = document.createElement("em");
+			tag.className = "menu-tag";
+			tag.textContent = restaurant.menuName;
+			item.append(tag);
+		}
+		item.append(time);
 		list.append(item);
 	}
 	wrapper.append(list);

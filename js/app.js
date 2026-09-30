@@ -44,7 +44,7 @@ form.addEventListener("submit", (event) => {
 	const pool = others.length > 0 ? others : candidates;
 	current = pool[Math.floor(Math.random() * pool.length)];
 	showMenu(current);
-	nearby.show(current);
+	nearby.show(current, candidates);
 	recommendButton.textContent = "다시 추천받기";
 });
 
