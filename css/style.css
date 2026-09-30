@@ -257,6 +257,12 @@ body {
 	border-bottom: 1px solid #eee;
 }
 
+.others li::after {
+	content: "";
+	display: block;
+	clear: both;
+}
+
 #nearbyResult .others a {
 	margin: 0;
 	font-weight: 700;
@@ -465,5 +471,10 @@ body {
 
 	.menu-name {
 		font-size: 32px;
+	}
+
+	.others span {
+		float: none;
+		display: block;
 	}
 }
