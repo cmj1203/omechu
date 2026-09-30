@@ -446,7 +446,7 @@ body {
 
 .menu-table th,
 .menu-table td {
-	padding: 8px 6px;
+	padding: 8px 4px;
 	border-bottom: 1px solid #ddd;
 	text-align: left;
 	white-space: nowrap;
