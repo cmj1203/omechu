@@ -30,8 +30,7 @@ form.addEventListener("submit", (event) => {
 	const filters = Object.fromEntries(new FormData(form));
 	const candidates = menus.filter((menu) =>
 		(filters.kind === "전체" || menu.kind === filters.kind)
-		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine)
-		&& (filters.time === "전체" || menu.times.includes(filters.time)));
+		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
 
 	if (candidates.length === 0) {
 		current = null;
@@ -51,7 +50,7 @@ function showMenu(menu) {
 	result.replaceChildren(
 		paragraph("menu-label", "오늘의 메뉴"),
 		paragraph("menu-name", menu.name),
-		paragraph("menu-tags", [menu.kind, menu.cuisine, menu.times.join("·")].join(" | ")),
+		paragraph("menu-tags", [menu.kind, menu.cuisine].join(" | ")),
 	);
 }
 
