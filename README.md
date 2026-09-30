@@ -2,6 +2,8 @@
 
 오늘 뭐 먹지? 조건을 고르면 메뉴를 추천하고, 그 메뉴를 파는 **주변 맛집**을 지도에서 찾아 주는 웹사이트예요.
 
+🔗 **사이트: https://cmj1203.github.io/omechu/**
+
 > 예전 버전(JSP + MySQL, 학교 주변 맛집 추천)은 [lllllIIlI/jsp](https://github.com/lllllIIlI/jsp)에 있어요.
 
 ---
