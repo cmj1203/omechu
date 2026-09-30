@@ -189,7 +189,7 @@ async function searchRestaurants(menu, filterMenus, origin) {
 		.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, menu)?.name }))
 		.filter((place) => place.menuName);
 	const exact = forMenu
-		.filter((place) => place.matched)
+		.filter((place) => place.matched && hasSearchTerm(nameForMenu(place, menu), menu))
 		.map((place) => ({ ...place, menuName: menu.name }));
 	if (exact.length > 0) {
 		const pick = pickNear(exact);
@@ -250,25 +250,36 @@ function similarFor(menu) {
 }
 
 function bestMenu(place, filterMenus, recommended) {
-	const name = place.name.toLowerCase();
 	let best = null;
 	let bestScore = 0;
 	for (const candidate of filterMenus) {
 		if (!fitsKind(candidate, place)) {
 			continue;
 		}
-		const byMenuName = name.includes(candidate.name.toLowerCase());
-		const byTerm = byMenuName || searchTerms(candidate).some((term) => name.includes(term.toLowerCase()));
-		if (!byTerm) {
+		const name = nameForMenu(place, candidate);
+		if (!hasSearchTerm(name, candidate)) {
 			continue;
 		}
-		const score = (byMenuName ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
+		const score = (name.includes(candidate.name.toLowerCase()) ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
 		if (score > bestScore) {
 			best = candidate;
 			bestScore = score;
 		}
 	}
 	return best;
+}
+
+// 제외어 부분을 지운 가게 이름. 커리 메뉴에서 '아우어베이커리'는 '아우어 '가 돼서 '커리'로 안 잡혀요.
+function nameForMenu(place, menu) {
+	return (menu.exclude_terms ?? []).reduce(
+		(name, term) => name.replaceAll(term.toLowerCase(), " "),
+		place.name.toLowerCase(),
+	);
+}
+
+function hasSearchTerm(name, menu) {
+	return name.includes(menu.name.toLowerCase())
+		|| searchTerms(menu).some((term) => name.includes(term.toLowerCase()));
 }
 
 function fitsKind(menu, place) {
@@ -298,7 +309,8 @@ function searchTerms(menu) {
 }
 
 async function searchOverpassForMenu(menu, origin) {
-	const exact = await searchOverpass(menuQuery(menu, origin), origin);
+	const exact = (await searchOverpass(menuQuery(menu, origin), origin))
+		.filter((place) => hasSearchTerm(nameForMenu(place, menu), menu));
 	if (exact.length > 0) {
 		return exact.map((place) => ({ ...place, matched: true }));
 	}

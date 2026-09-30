@@ -62,7 +62,8 @@ menuForm.addEventListener("submit", async (event) => {
 		cuisine: fields.get("cuisine"),
 		party: fields.getAll("party"),
 		times: fields.getAll("times"),
-		search_terms: fields.get("search_terms").split(",").map((term) => term.trim()).filter(Boolean),
+		search_terms: commaList(fields.get("search_terms")),
+		exclude_terms: commaList(fields.get("exclude_terms")),
 	};
 	if (!record.name || record.party.length === 0 || record.times.length === 0) {
 		setMessage(formMessage, "이름을 적고, 인원과 시간을 하나 이상 골라 주세요.", true);
@@ -110,7 +111,7 @@ async function openManager(user) {
 async function refreshList() {
 	const { data, error } = await supabase
 		.from("menus")
-		.select("id, name, kind, cuisine, party, times, search_terms")
+		.select("id, name, kind, cuisine, party, times, search_terms, exclude_terms")
 		.order("kind")
 		.order("cuisine")
 		.order("name");
@@ -118,7 +119,7 @@ async function refreshList() {
 		menuCount.textContent = "";
 		const row = document.createElement("tr");
 		const cell = textCell("메뉴를 불러오지 못했어요: " + error.message);
-		cell.colSpan = 7;
+		cell.colSpan = 8;
 		row.append(cell);
 		menuRows.replaceChildren(row);
 		return;
@@ -142,6 +143,7 @@ function menuRow(menu) {
 		textCell(menu.party.join("·")),
 		textCell(menu.times.join("·")),
 		textCell(menu.search_terms.join(", "), "terms"),
+		textCell(menu.exclude_terms.join(", "), "terms"),
 		actions,
 	);
 	return row;
@@ -153,6 +155,7 @@ function startEdit(menu) {
 	menuForm.elements.namedItem("kind").value = menu.kind;
 	menuForm.elements.namedItem("cuisine").value = menu.cuisine;
 	menuForm.elements.namedItem("search_terms").value = menu.search_terms.join(", ");
+	menuForm.elements.namedItem("exclude_terms").value = menu.exclude_terms.join(", ");
 	for (const box of menuForm.querySelectorAll("input[name='party']")) {
 		box.checked = menu.party.includes(box.value);
 	}
@@ -188,6 +191,10 @@ async function removeMenu(menu) {
 	}
 	setMessage(formMessage, "삭제했어요: " + menu.name);
 	await refreshList();
+}
+
+function commaList(text) {
+	return text.split(",").map((term) => term.trim()).filter(Boolean);
 }
 
 function textCell(text, className = "") {

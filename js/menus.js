@@ -6,7 +6,7 @@ export async function loadMenus() {
 		if (supabase) {
 			const { data, error } = await supabase
 				.from("menus")
-				.select("name, kind, cuisine, party, times, search_terms")
+				.select("name, kind, cuisine, party, times, search_terms, exclude_terms")
 				.abortSignal(AbortSignal.timeout(5000));
 			if (error) {
 				throw error;
