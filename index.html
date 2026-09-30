@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>오메추 - 오늘 메뉴 추천</title>
+	<meta name="description" content="오늘 뭐 먹지? 조건을 고르면 메뉴를 추천하고, 주변 맛집을 지도에서 찾아 줘요.">
+	<link rel="stylesheet" href="css/style.css">
+	<script type="module" src="js/app.js"></script>
+</head>
+<body>
+	<nav class="tabs">
+		<a href="index.html" class="active" aria-current="page">메뉴 추천</a>
+		<a href="admin.html">관리자</a>
+	</nav>
+	<main class="container">
+		<h1 class="headline">오늘 뭐 먹지? 추천 버튼을 눌러보세요!</h1>
+
+		<form id="filters">
+			<fieldset class="choices">
+				<legend>종류</legend>
+				<div class="options">
+					<label><input type="radio" name="kind" value="전체" checked><span>전체</span></label>
+					<label><input type="radio" name="kind" value="식사"><span>식사</span></label>
+					<label><input type="radio" name="kind" value="간식"><span>간식</span></label>
+					<label><input type="radio" name="kind" value="술"><span>술</span></label>
+				</div>
+			</fieldset>
+			<fieldset class="choices">
+				<legend>나라</legend>
+				<div class="options">
+					<label><input type="radio" name="cuisine" value="전체" checked><span>전체</span></label>
+					<label><input type="radio" name="cuisine" value="한식"><span>한식</span></label>
+					<label><input type="radio" name="cuisine" value="중식"><span>중식</span></label>
+					<label><input type="radio" name="cuisine" value="일식"><span>일식</span></label>
+					<label><input type="radio" name="cuisine" value="양식"><span>양식</span></label>
+					<label><input type="radio" name="cuisine" value="아시아"><span>아시아</span></label>
+				</div>
+			</fieldset>
+			<fieldset class="choices">
+				<legend>인원</legend>
+				<div class="options">
+					<label><input type="radio" name="party" value="전체" checked><span>전체</span></label>
+					<label><input type="radio" name="party" value="1인"><span>1인</span></label>
+					<label><input type="radio" name="party" value="2~4인"><span>2~4인</span></label>
+					<label><input type="radio" name="party" value="5인~"><span>5인~</span></label>
+				</div>
+			</fieldset>
+			<fieldset class="choices">
+				<legend>시간</legend>
+				<div class="options">
+					<label><input type="radio" name="time" value="전체" checked><span>전체</span></label>
+					<label><input type="radio" name="time" value="아침"><span>아침</span></label>
+					<label><input type="radio" name="time" value="점심"><span>점심</span></label>
+					<label><input type="radio" name="time" value="저녁"><span>저녁</span></label>
+					<label><input type="radio" name="time" value="야식"><span>야식</span></label>
+				</div>
+			</fieldset>
+		</form>
+
+		<section class="result-box" aria-live="polite">
+			<div id="result">
+				<p class="placeholder">조건을 고르고 추천받기를 눌러 보세요 🍽️</p>
+			</div>
+			<div id="nearby" class="nearby" hidden>
+				<div class="nearby-form">
+					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="위치 (비워 두면 현재 위치, 예: 강남역)">
+					<button type="button" id="nearbyBtn">📍 주변 맛집 찾기</button>
+				</div>
+				<div id="nearbyResult"></div>
+			</div>
+		</section>
+
+		<button type="submit" form="filters" id="recommend" class="primary" disabled>메뉴 불러오는 중…</button>
+		<p id="dataNote" class="note" hidden></p>
+	</main>
+</body>
+</html>

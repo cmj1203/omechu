@@ -1,0 +1,8 @@
+# 내 컴퓨터에만 두는 비밀 값 (관리자 비밀번호, Supabase 비밀 키, DB 비밀번호)
+.env.local
+
+# Supabase CLI 가 만드는 로컬 파일
+supabase/.temp/
+supabase/.branches/
+
+.DS_Store

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex">
+	<title>오메추 - 메뉴 관리</title>
+	<link rel="stylesheet" href="css/style.css">
+	<script type="module" src="js/admin.js"></script>
+</head>
+<body>
+	<nav class="tabs">
+		<a href="index.html">메뉴 추천</a>
+		<a href="admin.html" class="active" aria-current="page">관리자</a>
+	</nav>
+	<main class="container">
+		<h1 class="headline">메뉴 관리 (관리자 전용)</h1>
+		<p id="adminNotice" class="message error" hidden></p>
+
+		<form id="loginForm" class="panel" hidden>
+			<label>이메일 <input type="email" name="email" autocomplete="username" required></label>
+			<label>비밀번호 <input type="password" name="password" autocomplete="current-password" required></label>
+			<button type="submit" class="primary">로그인</button>
+			<p id="loginMessage" class="message"></p>
+		</form>
+
+		<section id="manager" hidden>
+			<div class="manager-top">
+				<span id="whoami"></span>
+				<button type="button" id="logout" class="small">로그아웃</button>
+			</div>
+
+			<form id="menuForm" class="panel">
+				<h2 id="formTitle">메뉴 추가</h2>
+				<label>메뉴 이름 <input type="text" name="name" maxlength="30" required placeholder="예: 김치찌개"></label>
+				<label>종류
+					<select name="kind">
+						<option>식사</option>
+						<option>간식</option>
+						<option>술</option>
+					</select>
+				</label>
+				<label>나라
+					<select name="cuisine">
+						<option>한식</option>
+						<option>중식</option>
+						<option>일식</option>
+						<option>양식</option>
+						<option>아시아</option>
+					</select>
+				</label>
+				<fieldset class="checks">
+					<legend>인원 (여러 개 고를 수 있어요)</legend>
+					<label><input type="checkbox" name="party" value="1인"> 1인</label>
+					<label><input type="checkbox" name="party" value="2~4인"> 2~4인</label>
+					<label><input type="checkbox" name="party" value="5인~"> 5인~</label>
+				</fieldset>
+				<fieldset class="checks">
+					<legend>시간 (여러 개 고를 수 있어요)</legend>
+					<label><input type="checkbox" name="times" value="아침"> 아침</label>
+					<label><input type="checkbox" name="times" value="점심"> 점심</label>
+					<label><input type="checkbox" name="times" value="저녁"> 저녁</label>
+					<label><input type="checkbox" name="times" value="야식"> 야식</label>
+				</fieldset>
+				<div class="form-actions">
+					<button type="submit" id="saveBtn" class="primary">추가</button>
+					<button type="button" id="cancelEdit" class="secondary" hidden>취소</button>
+				</div>
+				<p id="formMessage" class="message"></p>
+			</form>
+
+			<h2 class="list-title">메뉴 목록 <span id="menuCount"></span></h2>
+			<div class="table-wrap">
+				<table class="menu-table">
+					<thead>
+						<tr><th>이름</th><th>종류</th><th>나라</th><th>인원</th><th>시간</th><th></th></tr>
+					</thead>
+					<tbody id="menuRows"></tbody>
+				</table>
+			</div>
+		</section>
+	</main>
+</body>
+</html>
