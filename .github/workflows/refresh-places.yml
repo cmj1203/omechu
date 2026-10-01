@@ -1,0 +1,30 @@
+# 매달 OpenStreetMap에서 식당·카페·술집 정보를 다시 받아 Supabase places 표를 새로 채워요.
+# 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 가 있어야 해요.
+# Actions 탭에서 'Run workflow'를 눌러 바로 돌릴 수도 있어요.
+name: 식당 정보 새로고침
+
+on:
+  schedule:
+    - cron: "0 18 1 * *" # 매달 2일 새벽 3시(한국 시간)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-places
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - name: osmium 설치
+        run: sudo apt-get update && sudo apt-get install -y osmium-tool
+      - name: 식당 정보 가져오기
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: bash scripts/import-places.sh

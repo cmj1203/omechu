@@ -2,7 +2,7 @@
 """osmium 으로 뽑은 식당 데이터(geojsonseq)를 Supabase places 표에 넣어요. import-places.sh 가 실행해요.
 
 사용법: python3 scripts/osm_to_places.py <food.geojsonseq> <가져오기 시작 시각(ISO)>
-환경 변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (.env.local)
+환경 변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (.env.local), DRY_RUN=1 이면 올리지 않고 가게 수만 세요
 """
 import json
 import os
@@ -87,6 +87,10 @@ def upload(rows):
 
 def main():
     path, imported_at = sys.argv[1], sys.argv[2]
+    if os.environ.get("DRY_RUN") == "1":
+        total = sum(1 for _ in read_places(path, imported_at))
+        print(f"시험: 올릴 가게 {total:,}곳", flush=True)
+        return
     batch, total = [], 0
     for place in read_places(path, imported_at):
         batch.append(place)
