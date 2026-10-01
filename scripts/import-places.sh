@@ -21,8 +21,31 @@ WORK="${TMPDIR:-/tmp}/omechu-osm"
 mkdir -p "$WORK"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-echo "1/4 한국 지도 내려받는 중..."
-curl -fsSL -o "$WORK/south-korea-latest.osm.pbf" https://download.geofabrik.de/asia/south-korea-latest.osm.pbf
+BASE_URL=https://download.geofabrik.de/asia/south-korea
+# Geofabrik의 '-latest' 주소는 날짜 붙은 파일로 넘겨주는데, GitHub 러너에서는 같은 주소로 계속 넘겨서(무한 이동) 받을 수 없어요.
+# 그래서 넘겨줄 주소에 날짜가 있으면 그걸 쓰고, 없으면 오늘부터 하루씩 거슬러 날짜 붙은 파일을 찾아요.
+# 아직 없는 날짜는 응답 없이 기다리기도 해서, 한 번에 30초까지만 기다려요.
+find_pbf_url() {
+	local next days stamp code
+	next="$(curl -sS -o /dev/null --max-time 30 -w '%{redirect_url}' "$BASE_URL-latest.osm.pbf" || true)"
+	if [[ "$next" =~ -[0-9]{6}\.osm\.pbf/?$ ]]; then
+		echo "${next%/}"
+		return
+	fi
+	for days in 0 1 2 3 4 5 6 7; do
+		stamp="$(python3 -c "import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(days=$days)).strftime('%y%m%d'))")"
+		code="$(curl -sS -o /dev/null -r 0-0 --max-redirs 0 --max-time 30 -w '%{http_code}' "$BASE_URL-$stamp.osm.pbf" || true)"
+		if [ "$code" = "200" ] || [ "$code" = "206" ]; then
+			echo "$BASE_URL-$stamp.osm.pbf"
+			return
+		fi
+	done
+}
+PBF_URL="$(find_pbf_url)"
+: "${PBF_URL:?최근 8일 안의 한국 지도 파일을 찾지 못했어요}"
+
+echo "1/4 한국 지도 내려받는 중... (${PBF_URL##*/})"
+curl -fsSL --retry 3 --retry-delay 30 --retry-all-errors -o "$WORK/south-korea-latest.osm.pbf" "$PBF_URL"
 
 echo "2/4 식당·카페·술집만 고르는 중..."
 osmium tags-filter "$WORK/south-korea-latest.osm.pbf" \
