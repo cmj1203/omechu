@@ -285,7 +285,8 @@ body {
 }
 
 #nearbyPlace::placeholder,
-.panel input::placeholder {
+.panel input::placeholder,
+.table-search::placeholder {
 	color: var(--ash);
 	opacity: 1;
 }
@@ -687,6 +688,7 @@ body {
 .panel input[type="text"],
 .panel input[type="email"],
 .panel input[type="password"],
+.panel input[type="search"],
 .panel select {
 	height: 44px;
 	padding: 0 12px;
@@ -702,7 +704,9 @@ body {
 .panel input[type="text"]:focus,
 .panel input[type="email"]:focus,
 .panel input[type="password"]:focus,
-.panel select:focus {
+.panel input[type="search"]:focus,
+.panel select:focus,
+.table-search:focus {
 	outline: none;
 	border-color: var(--ink);
 	box-shadow: 0 0 0 1px var(--ink);
@@ -723,6 +727,7 @@ body {
 	margin: 0;
 	font-size: 14px;
 	text-align: center;
+	text-wrap: balance;
 }
 
 .message.error {
@@ -734,13 +739,115 @@ body {
 	display: none;
 }
 
+/* 로그인 정보 줄은 바로 아래 폼 카드와 좌우 끝을 맞춰요 */
 .manager-top {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 12px;
+	max-width: 480px;
+	margin: 0 auto 12px;
 	font-size: 14px;
+}
+
+.panel-help {
+	margin: 0;
+	color: var(--ash);
+	font-size: 13px;
+	text-wrap: balance;
+}
+
+/* 가게 숨기기 카드는 빈 목록과 빈 안내 줄이 간격만 차지하지 않게 숨겨요 */
+#hideMessage:empty,
+.place-list:empty {
+	display: none;
+}
+
+.panel-subtitle {
+	margin: 4px 0 0;
+	font-size: 15px;
+	font-weight: 800;
+}
+
+/* 미리보기 글이 나타나도 저장 버튼이 밀리지 않게 한 줄 자리를 남겨 둬요 */
+.terms-preview {
+	min-height: 1lh;
+	margin: 0;
+	color: var(--ash);
+	font-size: 13px;
+}
+
+.search-row {
+	display: flex;
+	gap: 8px;
+}
+
+.search-row input {
+	flex: 1;
+	min-width: 0;
+}
+
+.search-row .secondary {
+	height: 44px;
+	padding: 0 18px;
+}
+
+.place-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.place-list li {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 0;
+	border-bottom: 1px solid var(--hairline);
+}
+
+.place-list li:last-child {
+	border-bottom: 0;
+}
+
+.place-name {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.place-address {
+	margin: 2px 0 0;
+	color: var(--ash);
+	font-size: 12px;
+}
+
+.place-state {
+	flex: none;
+	margin: 0;
+	color: var(--ash);
+	font-size: 13px;
+}
+
+.table-search {
+	width: 100%;
+	height: 44px;
+	margin: 0 0 12px;
+	padding: 0 12px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-sm);
+	background: var(--canvas);
+	color: var(--ink);
+	font: inherit;
+	font-size: 15px;
+	font-weight: 500;
+}
+
+/* 찾기 칸 끝의 브라우저 기본 지우기(×) 표시는 파란색이라 디자인 색과 맞지 않아서 숨겨요 */
+input[type="search"]::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 .list-title {
@@ -755,10 +862,34 @@ body {
 	box-shadow: var(--shadow-card);
 }
 
+/* 칸 폭을 정해 두어서, 메뉴를 찾아 줄이 줄어도 칸과 버튼이 움직이지 않아요. 남는 폭은 제외어 칸이 가져요.
+   휴대폰에서는 표가 600px보다 좁아지지 않고 옆으로 밀어서 봐요 */
 .menu-table {
 	width: 100%;
+	min-width: 600px;
+	table-layout: fixed;
 	border-collapse: collapse;
 	font-size: 14px;
+}
+
+.menu-table th:nth-child(1) {
+	width: 84px;
+}
+
+.menu-table th:nth-child(2) {
+	width: 36px;
+}
+
+.menu-table th:nth-child(3) {
+	width: 52px;
+}
+
+.menu-table th:nth-child(4) {
+	width: 35%;
+}
+
+.menu-table th:nth-child(6) {
+	width: 104px;
 }
 
 .menu-table th,
@@ -775,10 +906,25 @@ body {
 }
 
 .menu-table td.terms {
-	min-width: 110px;
 	color: var(--ash);
 	font-size: 13px;
 	white-space: normal;
+}
+
+/* 긴 메뉴 이름은 칸 안에서 줄을 바꿔요 */
+.menu-table td:nth-child(1) {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.menu-table td:nth-child(6) {
+	text-align: right;
+}
+
+.menu-table td.empty {
+	padding: 16px 4px;
+	color: var(--ash);
+	text-align: center;
 }
 
 @media (max-width: 480px) {

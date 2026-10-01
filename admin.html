@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex">
-	<title>오메추 - 메뉴 관리</title>
+	<title>오메추 - 로그인</title>
 	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 	<link rel="stylesheet" href="css/style.css">
@@ -56,6 +56,7 @@
 				<label>제외어 (쉼표로 구분, 가게 이름에서 이 말 속에 든 검색어는 안 쳐요)
 					<input type="text" name="exclude_terms" placeholder="예: 커리 메뉴라면 베이커리">
 				</label>
+				<p id="termsPreview" class="terms-preview" aria-live="polite"></p>
 				<div class="form-actions">
 					<button type="submit" id="saveBtn" class="primary">추가</button>
 					<button type="button" id="cancelEdit" class="secondary" hidden>취소</button>
@@ -63,7 +64,22 @@
 				<p id="formMessage" class="message"></p>
 			</form>
 
+			<section id="hidePanel" class="panel">
+				<h2>가게 숨기기</h2>
+				<p class="panel-help">폐업했거나 엉뚱한 가게를 숨기면 주변 식당 추천에 나오지 않아요.</p>
+				<form id="placeSearch" class="search-row">
+					<input type="search" name="q" aria-label="가게 이름" placeholder="가게 이름으로 찾기" required>
+					<button type="submit" class="secondary">찾기</button>
+				</form>
+				<p id="hideMessage" class="message"></p>
+				<ul id="placeResults" class="place-list"></ul>
+				<h3 class="panel-subtitle">숨긴 가게 <span id="hiddenCount"></span></h3>
+				<ul id="hiddenList" class="place-list"></ul>
+				<p id="hiddenEmpty" class="panel-help" hidden>아직 숨긴 가게가 없어요.</p>
+			</section>
+
 			<h2 class="list-title">메뉴 목록 <span id="menuCount"></span></h2>
+			<input type="search" id="menuSearch" class="table-search" aria-label="메뉴 찾기" placeholder="메뉴 이름이나 검색어로 찾기">
 			<div class="table-wrap">
 				<table class="menu-table">
 					<thead>
