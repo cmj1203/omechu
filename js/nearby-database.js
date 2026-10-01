@@ -2,11 +2,12 @@ import { getSupabase } from "./supabase.js";
 import { AMENITIES_BY_KIND, BAKERY_SHOPS, searchTerms } from "./nearby-menu-matching.js";
 
 export const SEARCH_RADIUS_METERS = 2000;
+export const WIDER_RADIUS_METERS = 5000;
 
 const WALK_METERS_PER_MINUTE = 67;
 const STRAIGHT_TO_WALK_FACTOR = 1.3;
 
-export async function searchDatabase(origin, menus, similar) {
+export async function searchDatabase(origin, menus, similar, radius = SEARCH_RADIUS_METERS) {
 	const supabase = await getSupabase();
 	if (!supabase) {
 		throw new Error("Supabase 가 연결되지 않았어요.");
@@ -16,7 +17,7 @@ export async function searchDatabase(origin, menus, similar) {
 		.rpc("nearby_places", {
 			p_lat: origin.lat,
 			p_lng: origin.lng,
-			p_radius: SEARCH_RADIUS_METERS,
+			p_radius: radius,
 			p_terms: [...new Set(menus.flatMap(searchTerms))],
 			p_amenities: [...new Set(kinds.flatMap((kind) => AMENITIES_BY_KIND[kind]))],
 			p_shops: kinds.includes("간식") ? BAKERY_SHOPS : [],

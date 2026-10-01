@@ -76,10 +76,13 @@ export function initNearby(section) {
 
 	function render(target, origin, found) {
 		if (!found.pick) {
-			showMessage(origin.label + " 근처 2km 안에서 조건에 맞는 식당을 찾지 못했어요.", target, origin);
+			showMessage(origin.label + " 근처 " + found.searchedKm + "km 안에서 조건에 맞는 식당을 찾지 못했어요.", target, origin);
 			return;
 		}
 		const nodes = [];
+		if (found.wider) {
+			nodes.push(paragraph("nearby-note", "2km 안에 맞는 가게가 없어서 5km까지 찾았어요."));
+		}
 		if (found.mode === "filter") {
 			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은\u00a0조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
 		} else if (found.mode === "similar") {

@@ -14,7 +14,8 @@ export function restaurantCard(restaurant, origin) {
 	card.append(
 		paragraph("restaurant-label", "추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
 		paragraph("restaurant-name", restaurant.name),
-		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance)),
+		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
+		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance)),
 	);
 	const info = [restaurant.address, restaurant.phone].filter(Boolean).join(" · ");
 	if (info) {
@@ -25,6 +26,7 @@ export function restaurantCard(restaurant, origin) {
 	links.append(
 		link("카카오맵 길찾기 ↗", kakaoRouteUrl(origin, restaurant)),
 		link("지도에서 보기 ↗", kakaoMapUrl(restaurant)),
+		shareButton(restaurant, origin),
 	);
 	card.append(links);
 	return card;
@@ -109,6 +111,46 @@ export function paragraph(className, text) {
 	element.className = className;
 	element.textContent = text;
 	return element;
+}
+
+// 휴대폰은 기본 공유 창(카톡 등)을 열고, 공유 창이 없거나 열지 못하는 브라우저에서는 내용을 복사해요.
+function shareButton(restaurant, origin) {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.textContent = "공유하기";
+	let labelTimer = null;
+	// 바뀐 글자는 2초 뒤 '공유하기'로 돌아가요. 빨리 두 번 누르면 마지막에 누른 때부터 2초를 세요.
+	const flashLabel = (label) => {
+		button.textContent = label;
+		clearTimeout(labelTimer);
+		labelTimer = setTimeout(() => {
+			button.textContent = "공유하기";
+		}, 2000);
+	};
+	button.addEventListener("click", async () => {
+		const url = kakaoMapUrl(restaurant);
+		// '현재 위치'라고 보내면 받는 사람이 자기 위치로 읽어서, 보내는 사람 기준인 '내 위치'로 써요.
+		const from = origin.label === "현재 위치" ? "내 위치" : origin.label;
+		const text = (restaurant.menuName ? "오늘 메뉴는 " + restaurant.menuName + "! " : "오늘은 여기 어때? ")
+			+ restaurant.name + " (" + from + "에서 도보 약 " + restaurant.walkMinutes + "분)";
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: "오메추 추천", text, url });
+				return;
+			} catch (error) {
+				if (error.name === "AbortError") {
+					return;
+				}
+			}
+		}
+		try {
+			await navigator.clipboard.writeText(text + "\n" + url);
+			flashLabel("복사했어요");
+		} catch {
+			flashLabel("공유하지 못했어요");
+		}
+	});
+	return button;
 }
 
 function link(text, href) {

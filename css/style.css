@@ -115,6 +115,11 @@ body {
 	font-weight: 700;
 }
 
+.lock-note {
+	font-size: 13px;
+	font-weight: 500;
+}
+
 .options {
 	display: flex;
 	flex-wrap: wrap;
@@ -206,9 +211,52 @@ body {
 }
 
 .menu-tags {
-	margin: 0 0 20px;
+	margin: 0 0 4px;
 	color: var(--ash);
 	font-size: 14px;
+}
+
+.menu-actions {
+	display: grid;
+	justify-items: center;
+	margin: 0 0 12px;
+}
+
+.text-button {
+	height: 40px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--ash);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+	transition: color 0.15s ease-out;
+}
+
+@media (hover: hover) {
+	.text-button:hover {
+		color: var(--ink);
+	}
+}
+
+.text-button:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+.skipped-note {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	margin: 0;
+	color: var(--ash);
+	font-size: 13px;
 }
 
 .nearby {
@@ -377,7 +425,8 @@ body {
 	margin: 12px 0 0;
 }
 
-#nearbyResult .restaurant-links a {
+#nearbyResult .restaurant-links a,
+#nearbyResult .restaurant-links button {
 	display: inline-flex;
 	align-items: center;
 	height: 40px;
@@ -385,12 +434,17 @@ body {
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-sm);
 	background: var(--canvas);
+	color: var(--ink);
+	font: inherit;
 	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
 	transition: border-color 0.15s ease-out;
 }
 
 @media (hover: hover) {
-	#nearbyResult .restaurant-links a:hover {
+	#nearbyResult .restaurant-links a:hover,
+	#nearbyResult .restaurant-links button:hover {
 		border-color: var(--ink);
 	}
 }
@@ -755,7 +809,8 @@ body {
 		padding: 24px 16px;
 	}
 
-	#nearbyResult .restaurant-links a {
+	#nearbyResult .restaurant-links a,
+	#nearbyResult .restaurant-links button {
 		padding: 0 10px;
 	}
 
@@ -774,7 +829,8 @@ body {
 	}
 }
 
-#nearbyResult a:focus-visible {
+#nearbyResult a:focus-visible,
+#nearbyResult .restaurant-links button:focus-visible {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
 }
