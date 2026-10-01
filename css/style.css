@@ -600,6 +600,11 @@ body {
 	text-align: center;
 }
 
+/* 관리자 화면은 제목 줄이 없어서, 추천 화면 제목과 같은 높이(탭 아래 28px)에서 시작해요 */
+.admin-page {
+	padding-top: 28px;
+}
+
 .panel {
 	display: grid;
 	gap: 12px;
