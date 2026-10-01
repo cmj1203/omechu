@@ -66,7 +66,7 @@ export function initNearby(section) {
 	}
 
 	function idleLabel() {
-		return "📍 주변 '" + menu.name + "' 식당 추천";
+		return "주변 '" + menu.name + "' 식당 추천";
 	}
 
 	function setBusy(label) {
@@ -81,7 +81,7 @@ export function initNearby(section) {
 		}
 		const nodes = [];
 		if (found.mode === "filter") {
-			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은 조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
+			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은\u00a0조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
 		} else if (found.mode === "similar") {
 			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}

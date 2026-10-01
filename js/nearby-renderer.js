@@ -12,9 +12,9 @@ export function restaurantCard(restaurant, origin) {
 	const card = document.createElement("div");
 	card.className = "restaurant-card";
 	card.append(
-		paragraph("restaurant-label", "🍽️ 추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
+		paragraph("restaurant-label", "추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
 		paragraph("restaurant-name", restaurant.name),
-		paragraph("restaurant-walk", "🚶 " + origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance)),
+		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance)),
 	);
 	const info = [restaurant.address, restaurant.phone].filter(Boolean).join(" · ");
 	if (info) {
@@ -61,13 +61,22 @@ export function footer(menu, where) {
 	osm.target = "_blank";
 	osm.rel = "noopener";
 	osm.textContent = "OpenStreetMap";
+	// 세 구절을 따로 묶어서 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
+	// © 뒤와 ↗ 앞은 줄바꿈 없는 공백이라 ©와 ↗만 따로 떨어지지 않아요.
 	note.append(
-		"도보 시간은 직선거리로 어림한 값이에요 · 식당 정보 © ",
-		osm,
-		" 기여자 · ",
-		link("구글 지도에서 더 찾기 ↗", googleMapsUrl(menu, where)),
+		phrase("도보 시간은 직선거리로 어림한 값이에요 ·"),
+		" ",
+		phrase("식당 정보 ©\u00a0", osm, " 기여자 ·"),
+		" ",
+		phrase(link("구글 지도에서 더 찾기\u00a0↗", googleMapsUrl(menu, where))),
 	);
 	return note;
+}
+
+function phrase(...parts) {
+	const span = document.createElement("span");
+	span.append(...parts);
+	return span;
 }
 
 function kakaoMapUrl(restaurant) {

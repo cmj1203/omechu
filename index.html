@@ -5,6 +5,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>오메추 - 오늘 메뉴 추천</title>
 	<meta name="description" content="오늘 뭐 먹지? 조건을 고르면 메뉴를 추천하고, 주변 맛집을 지도에서 찾아 줘요.">
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 	<link rel="stylesheet" href="css/style.css">
 	<script type="module" src="js/app.js"></script>
 </head>
@@ -14,7 +16,7 @@
 		<a href="admin.html">관리자</a>
 	</nav>
 	<main class="container">
-		<h1 class="headline">오늘 뭐 먹지? 추천 버튼을 눌러보세요!</h1>
+		<h1 class="headline">오늘 뭐 먹지? 추천&nbsp;버튼을 눌러보세요!</h1>
 
 		<form id="filters">
 			<fieldset class="choices">
@@ -41,12 +43,12 @@
 
 		<section class="result-box" aria-live="polite">
 			<div id="result">
-				<p class="placeholder">조건을 고르고 추천받기를 눌러 보세요 🍽️</p>
+				<p class="placeholder">조건을 고르고 추천받기를 눌러 보세요</p>
 			</div>
 			<div id="nearby" class="nearby" hidden>
 				<div class="nearby-form">
 					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="위치 (비워 두면 현재 위치, 예: 강남역)">
-					<button type="button" id="nearbyBtn">📍 주변 맛집 찾기</button>
+					<button type="button" id="nearbyBtn">주변 맛집 찾기</button>
 				</div>
 				<div id="nearbyResult"></div>
 			</div>
