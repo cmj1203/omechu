@@ -33,6 +33,12 @@
 |------|------|
 | `index.html`, `js/app.js` | 메뉴 추천 화면 |
 | `js/nearby.js` | 주변 식당 찾기 (위치 → OpenStreetMap 검색 → 추천 식당과 도보 시간) |
+| `js/nearby-location.js` | 현재 위치, 동네 이름 → 좌표 |
+| `js/nearby-restaurant-search.js` | 추천할 식당 고르기 (DB 먼저, 안 되면 예비 검색) |
+| `js/nearby-database.js` | 식당 DB(Supabase) 검색, 2km 반경과 도보 시간 계산 |
+| `js/nearby-overpass.js` | DB가 안 될 때 OpenStreetMap 공개 서버로 찾는 예비 검색 |
+| `js/nearby-menu-matching.js` | 가게가 메뉴와 맞는지 판단 (가게 종류, 검색어·제외어) |
+| `js/nearby-renderer.js` | 추천 카드, 다른 가까운 곳 목록, 지도 링크 그리기 |
 | `admin.html`, `js/admin.js` | 관리자 로그인과 메뉴 관리 |
 | `js/supabase.js` | Supabase 주소와 공개(publishable) 키 |
 | `js/menus.js` | 메뉴 불러오기 (DB에 연결이 안 되면 기본 목록 사용) |
