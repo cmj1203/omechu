@@ -97,7 +97,7 @@ def main():
             print(f"{total:,}곳 올림", flush=True)
     if batch:
         upload(batch)
-        total += len(batch)
+    total += len(batch)
     print(f"완료: {total:,}곳", flush=True)
 
 

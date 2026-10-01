@@ -156,11 +156,8 @@ function startEdit(menu) {
 	menuForm.elements.namedItem("cuisine").value = menu.cuisine;
 	menuForm.elements.namedItem("search_terms").value = menu.search_terms.join(", ");
 	menuForm.elements.namedItem("exclude_terms").value = menu.exclude_terms.join(", ");
-	for (const box of menuForm.querySelectorAll("input[name='party']")) {
-		box.checked = menu.party.includes(box.value);
-	}
-	for (const box of menuForm.querySelectorAll("input[name='times']")) {
-		box.checked = menu.times.includes(box.value);
+	for (const box of menuForm.querySelectorAll("input[name='party'], input[name='times']")) {
+		box.checked = menu[box.name].includes(box.value);
 	}
 	formTitle.textContent = "메뉴 수정: " + menu.name;
 	saveButton.textContent = "저장";

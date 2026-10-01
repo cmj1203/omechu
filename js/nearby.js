@@ -42,11 +42,7 @@ export function initNearby(section) {
 	let filterMenus = [];
 	let searchId = 0;
 
-	button.addEventListener("click", () => {
-		if (!button.disabled) {
-			findRestaurants();
-		}
-	});
+	button.addEventListener("click", findRestaurants);
 	placeInput.addEventListener("keydown", (event) => {
 		if (event.key === "Enter" && !button.disabled) {
 			findRestaurants();
