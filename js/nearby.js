@@ -76,6 +76,10 @@ export function initNearby(section) {
 		try {
 			setBusy(place ? "위치 찾는 중…" : "위치 확인 중…");
 			const origin = place ? await geocode(place) : await currentPosition();
+			// 위치를 기다리는 사이 새 검색이 시작됐으면 여기서 멈춰요. 계속 가면 새 검색 버튼을 '식당 찾는 중…'으로 다시 잠가요.
+			if (id !== searchId) {
+				return;
+			}
 			setBusy("식당 찾는 중…");
 			const found = await searchRestaurants(target, pool, origin);
 			if (id === searchId) {
