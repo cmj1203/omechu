@@ -654,33 +654,6 @@ body {
 	box-shadow: 0 0 0 1px var(--ink);
 }
 
-.checks {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px 16px;
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
-
-.checks legend {
-	margin-bottom: 6px;
-	padding: 0;
-	font-size: 14px;
-	font-weight: 700;
-}
-
-.checks label {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	font-weight: 500;
-}
-
-.checks input {
-	accent-color: var(--ink);
-}
-
 .form-actions {
 	display: flex;
 	justify-content: center;

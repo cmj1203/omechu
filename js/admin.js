@@ -60,13 +60,11 @@ menuForm.addEventListener("submit", async (event) => {
 		name: fields.get("name").trim(),
 		kind: fields.get("kind"),
 		cuisine: fields.get("cuisine"),
-		party: fields.getAll("party"),
-		times: fields.getAll("times"),
 		search_terms: commaList(fields.get("search_terms")),
 		exclude_terms: commaList(fields.get("exclude_terms")),
 	};
-	if (!record.name || record.party.length === 0 || record.times.length === 0) {
-		setMessage(formMessage, "이름을 적고, 인원과 시간을 하나 이상 골라 주세요.", true);
+	if (!record.name) {
+		setMessage(formMessage, "메뉴 이름을 적어 주세요.", true);
 		return;
 	}
 
@@ -111,7 +109,7 @@ async function openManager(user) {
 async function refreshList() {
 	const { data, error } = await supabase
 		.from("menus")
-		.select("id, name, kind, cuisine, party, times, search_terms, exclude_terms")
+		.select("id, name, kind, cuisine, search_terms, exclude_terms")
 		.order("kind")
 		.order("cuisine")
 		.order("name");
@@ -119,7 +117,7 @@ async function refreshList() {
 		menuCount.textContent = "";
 		const row = document.createElement("tr");
 		const cell = textCell("메뉴를 불러오지 못했어요: " + error.message);
-		cell.colSpan = 8;
+		cell.colSpan = 6;
 		row.append(cell);
 		menuRows.replaceChildren(row);
 		return;
@@ -140,8 +138,6 @@ function menuRow(menu) {
 		textCell(menu.name),
 		textCell(menu.kind),
 		textCell(menu.cuisine),
-		textCell(menu.party.join("·")),
-		textCell(menu.times.join("·")),
 		textCell(menu.search_terms.join(", "), "terms"),
 		textCell(menu.exclude_terms.join(", "), "terms"),
 		actions,
@@ -156,9 +152,6 @@ function startEdit(menu) {
 	menuForm.elements.namedItem("cuisine").value = menu.cuisine;
 	menuForm.elements.namedItem("search_terms").value = menu.search_terms.join(", ");
 	menuForm.elements.namedItem("exclude_terms").value = menu.exclude_terms.join(", ");
-	for (const box of menuForm.querySelectorAll("input[name='party'], input[name='times']")) {
-		box.checked = menu[box.name].includes(box.value);
-	}
 	formTitle.textContent = "메뉴 수정: " + menu.name;
 	saveButton.textContent = "저장";
 	cancelButton.hidden = false;

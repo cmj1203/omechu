@@ -56,19 +56,6 @@
 				<label>제외어 (쉼표로 구분, 가게 이름에서 이 말 속에 든 검색어는 안 쳐요)
 					<input type="text" name="exclude_terms" placeholder="예: 커리 메뉴라면 베이커리">
 				</label>
-				<fieldset class="checks">
-					<legend>인원 (여러 개 고를 수 있어요)</legend>
-					<label><input type="checkbox" name="party" value="1인"> 1인</label>
-					<label><input type="checkbox" name="party" value="2~4인"> 2~4인</label>
-					<label><input type="checkbox" name="party" value="5인~"> 5인~</label>
-				</fieldset>
-				<fieldset class="checks">
-					<legend>시간 (여러 개 고를 수 있어요)</legend>
-					<label><input type="checkbox" name="times" value="아침"> 아침</label>
-					<label><input type="checkbox" name="times" value="점심"> 점심</label>
-					<label><input type="checkbox" name="times" value="저녁"> 저녁</label>
-					<label><input type="checkbox" name="times" value="야식"> 야식</label>
-				</fieldset>
 				<div class="form-actions">
 					<button type="submit" id="saveBtn" class="primary">추가</button>
 					<button type="button" id="cancelEdit" class="secondary" hidden>취소</button>
@@ -80,7 +67,7 @@
 			<div class="table-wrap">
 				<table class="menu-table">
 					<thead>
-						<tr><th>이름</th><th>종류</th><th>나라</th><th>인원</th><th>시간</th><th>식당 검색어</th><th>제외어</th><th></th></tr>
+						<tr><th>이름</th><th>종류</th><th>나라</th><th>식당 검색어</th><th>제외어</th><th></th></tr>
 					</thead>
 					<tbody id="menuRows"></tbody>
 				</table>
