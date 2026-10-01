@@ -7,6 +7,12 @@ const result = document.getElementById("result");
 const dataNote = document.getElementById("dataNote");
 const nearby = initNearby(document.getElementById("nearby"));
 
+// 간식·술은 나라 구분 없이 추천해서, 고르면 나라를 '전체'로 고정하고 다른 나라는 못 고르게 해요
+lockCuisine();
+form.addEventListener("change", lockCuisine);
+// 뒤로 가기로 돌아오면 브라우저가 고른 값을 나중에 되살려서, 그때 한 번 더 맞춰요
+window.addEventListener("pageshow", lockCuisine);
+
 let menus = [];
 let current = null;
 
@@ -45,6 +51,20 @@ form.addEventListener("submit", (event) => {
 	nearby.show(current, candidates);
 	recommendButton.textContent = "다시 추천받기";
 });
+
+function lockCuisine() {
+	const kind = form.elements.kind.value;
+	const locked = kind === "간식" || kind === "술";
+	for (const option of form.elements.cuisine) {
+		if (option.value === "전체") {
+			if (locked) {
+				option.checked = true;
+			}
+		} else {
+			option.disabled = locked;
+		}
+	}
+}
 
 function showMenu(menu) {
 	result.replaceChildren(

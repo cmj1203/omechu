@@ -162,6 +162,14 @@ body {
 	outline-offset: 2px;
 }
 
+/* 꺼진 칩은 마우스를 올리거나 눌러도 모양이 바뀌지 않아요 */
+.options input:disabled + span {
+	border-color: var(--hairline);
+	opacity: 0.4;
+	cursor: not-allowed;
+	transform: none;
+}
+
 .result-box {
 	display: flex;
 	flex-direction: column;
