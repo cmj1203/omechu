@@ -6,6 +6,15 @@
 
 > 예전 버전(JSP + MySQL, 학교 주변 맛집 추천)은 [lllllIIlI/jsp](https://github.com/lllllIIlI/jsp)에 있어요.
 
+## 🚀 바로 써 보기 (설치 없이)
+
+1. 휴대폰이나 컴퓨터 브라우저에서 **https://cmj1203.github.io/omechu/** 를 열어요.
+2. 종류(식사 · 간식 · 술)와 나라를 고르고 **추천받기**를 눌러요.
+3. 위치 칸에 동네(예: `강남역`, `전주시청`)를 적거나 비워 두고 **주변 맛집 찾기**를 눌러요. 비워 두면 브라우저가 현재 위치를 써도 되는지 물어봐요.
+4. 마음에 안 들면 **다시 추천받기**, 싫은 메뉴는 **이 메뉴 빼기**를 눌러요.
+
+회원가입이나 앱 설치는 필요 없어요. 코드를 내려받아 내 컴퓨터에서 돌려 보려면 [내 컴퓨터에서 실행하기](#️-내-컴퓨터에서-실행하기)를 보세요.
+
 ---
 
 ## 📌 주요 기능
@@ -24,8 +33,8 @@
 |------|------|
 | 화면 | HTML, CSS, JavaScript (빌드 도구 없음) |
 | DB · 로그인 | Supabase (PostgreSQL, Auth, RLS) |
-| 식당 · 지도 | OpenStreetMap (Overpass, Nominatim), 카카오맵 · 구글 지도 링크 |
-| 배포 | GitHub Pages |
+| 식당 · 지도 | OpenStreetMap (Overpass, Nominatim), 소상공인시장진흥공단 상가(상권)정보, 카카오맵 · 구글 지도 링크 |
+| 배포 · 자동 작업 | GitHub Pages, GitHub Actions (매달 식당 정보 새로고침) |
 
 ---
 
@@ -65,7 +74,15 @@
 
 ### 식당 정보 새로고침 (매달 자동)
 
-GitHub Actions(`.github/workflows/refresh-places.yml`)가 매달 2일 새벽 3시(한국 시간)에 한국 지도 파일(약 290MB)을 내려받아 식당·카페·술집만 골라 `places` 표를 새로 채워요. 가져오는 동안에도 기존 정보로 계속 추천돼요. 새로 올린 가게가 이전보다 20% 넘게 적으면 지도 파일이 잘못된 것으로 보고 기존 가게를 지우지 않아요.
+| 언제 | 한국 시간 매달 **2일 새벽 3시** (= 세계 표준시 UTC 매달 1일 18시) |
+|------|------|
+| 설정 | `.github/workflows/refresh-places.yml` 의 `cron: "0 18 1 * *"` |
+| 걸리는 시간 | 약 12분 (지도 파일 + 상가정보 파일 내려받기와 올리기) |
+| 최근 결과 보기 | 저장소 **Actions** 탭 → '식당 정보 새로고침' (초록 체크면 성공) |
+
+> **왜 1일이 아니라 2일이에요?** GitHub의 예약 시간(cron)은 한국 시간이 아니라 세계 표준시(UTC)로 적어요. UTC 1일 18시는 한국 시간(UTC보다 9시간 빠름)으로 다음 날인 2일 새벽 3시예요. 사이트를 쓰는 사람이 거의 없는 새벽에 돌리려고 이 시각으로 정했어요. 한국 시간 1일 새벽 3시는 UTC로 '전달의 마지막 날'이라 cron으로는 적을 수 없어요.
+
+GitHub Actions가 위 시각에 한국 지도 파일(약 290MB)을 내려받아 식당·카페·술집만 골라 `places` 표를 새로 채워요. 가져오는 동안에도 기존 정보로 계속 추천돼요. 새로 올린 가게가 이전보다 20% 넘게 적으면 지도 파일이 잘못된 것으로 보고 기존 가게를 지우지 않아요.
 
 이어서 소상공인시장진흥공단 상가(상권)정보(약 350MB, 분기마다 새로 나옴)를 공공데이터포털에서 내려받아, 메뉴 검색어에 걸리는 음식점만 골라 더해요(`scripts/import-sbiz-places.sh`). 구내식당·유흥 주점은 빼고, OpenStreetMap에 같은 가게(150m 안의 같은 이름)가 있으면 올리지 않아요. 관리자가 메뉴를 새로 넣으면 그 메뉴의 상가정보 가게는 다음 새로고침 때 들어와요. 두 출처는 `places.source`(`osm` · `sbiz`)로 나눠서, 한쪽을 새로 가져와도 다른 쪽 가게는 지우지 않아요.
 
@@ -74,6 +91,8 @@ GitHub Actions(`.github/workflows/refresh-places.yml`)가 매달 2일 새벽 3�
 - 저장소에 60일 동안 아무 변경이 없으면 GitHub가 예약 실행을 멈춰요. 그때는 Actions 탭에서 다시 켜면 돼요.
 
 내 컴퓨터에서 직접 돌릴 수도 있어요.
+
+`.env.local`에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`가 있어야 하고, 상가정보 스크립트는 Python 3.11 이상이 필요해요.
 
 ```
 brew install osmium-tool              # 처음 한 번
@@ -97,7 +116,7 @@ DRY_RUN=1 ./scripts/import-places.sh  # 내려받고 고르기만 (DB는 안 건
 | `search_terms` | text[] | 식당을 찾을 검색어 (예: 짜장면 → 짜장, 반점, 중화). 비우면 메뉴 이름으로 찾아요 |
 | `exclude_terms` | text[] | 제외어: 가게 이름에서 이 말 속에 든 검색어는 안 쳐요 (예: 커리 → 베이커리) |
 
-### `places` (식당, OpenStreetMap에서 가져옴)
+### `places` (식당, OpenStreetMap · 상가정보에서 가져옴)
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
@@ -132,14 +151,32 @@ DRY_RUN=1 ./scripts/import-places.sh  # 내려받고 고르기만 (DB는 안 건
 
 ---
 
-## ⚙️ 내 컴퓨터에서 보기
+## ⚙️ 내 컴퓨터에서 실행하기
+
+필요한 것: `git`, `python3` (맥에는 보통 깔려 있어요). 빌드나 `npm install`은 필요 없어요.
 
 ```
+git clone https://github.com/cmj1203/omechu.git
 cd omechu
 python3 -m http.server 8000
 ```
 
 브라우저에서 http://localhost:8000 을 열어요. (8000번을 이미 쓰고 있으면 다른 숫자를 쓰면 돼요)
+
+- 그냥 열면 이 사이트가 쓰는 DB(Supabase)에 연결돼서 메뉴와 식당이 바로 나와요. 브라우저에 들어 있는 키는 읽기만 되는 공개 키라 괜찮아요.
+- 관리자 화면(`admin.html`)은 `admins` 표에 등록된 계정만 쓸 수 있어요.
+- DB에 연결이 안 되면 `data/menus.json`의 기본 메뉴로 추천하고, 식당은 OpenStreetMap 공개 서버로 찾아요.
+- 코드를 고친 뒤에는 브라우저를 새로고침하면 바로 보여요.
+
+### 내 Supabase로 따로 운영하려면
+
+1. [Supabase](https://supabase.com)에서 프로젝트를 만들어요.
+2. `js/supabase.js`의 주소와 공개(publishable) 키를 내 프로젝트 것으로 바꿔요.
+3. `.env.local` 파일을 만들고 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`를 적어요. (이 파일은 git에 올라가지 않아요)
+4. 아래 'DB 바꾸기'처럼 `supabase db push`로 표와 기본 메뉴를 만들어요.
+5. `./scripts/import-places.sh`, `./scripts/import-sbiz-places.sh`로 식당 정보를 채워요 ([식당 정보 새로고침](#식당-정보-새로고침-매달-자동) 참고).
+6. 관리자로 쓸 계정을 Supabase Authentication에서 만들고, SQL Editor에서 `insert into public.admins (user_id) values ('<계정 uuid>');` 를 실행해요.
+7. 매달 자동 새로고침을 쓰려면 GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`를 넣어요.
 
 ## 🗄️ DB 바꾸기 (Supabase CLI)
 
@@ -150,3 +187,17 @@ supabase db push --project-ref <프로젝트 ref>
 
 새 표나 권한은 `supabase/migrations/`에 SQL 파일을 추가하고 `db push` 하면 돼요.
 비밀 값(DB 비밀번호, 비밀 키, 관리자 비밀번호)은 `.env.local`에만 두고 git에 올리지 않아요.
+
+---
+
+## ❓ 알아 두면 좋은 것
+
+| 궁금한 점 | 답 |
+|------|------|
+| 식당 정보는 얼마나 새것이에요? | OpenStreetMap은 매달, 상가정보는 분기(3개월)마다 새로 나와요. 매달 새로고침 때 그때의 최신 파일을 가져와요. 문 닫은 가게가 남아 있으면 관리자 화면에서 숨길 수 있어요. |
+| 식당은 몇 곳이에요? | OpenStreetMap 약 10만 곳 + 상가정보 약 29만 곳이에요. 상가정보는 메뉴 검색어가 이름에 들어간 가게만 넣어서, 이름에 메뉴가 안 드러나는 가게(예: '○○식당')는 메뉴로는 잘 안 잡혀요. |
+| 지방에서도 잘 찾아져요? | 메뉴 149개 중 2km 안에 가게가 하나도 없는 메뉴는 전주시청 43개, 춘천시청 36개, 세종시청 52개, 강남역 13개예요 (2026년 10월 기준). 그때는 같은 조건의 다른 메뉴 가게나 비슷한 종류의 가게를 추천하고, 5km까지 넓혀 찾아요. |
+| 도보 시간이 정확해요? | 직선거리로 어림한 값이에요. 실제 길은 **카카오맵 길찾기** 버튼으로 확인하세요. |
+| 현재 위치가 안 잡혀요 | 브라우저의 위치 권한을 허용하거나, 위치 칸에 동네 이름을 적으면 돼요. |
+| 자동 새로고침이 멈췄어요 | 저장소에 60일 동안 변경이 없으면 GitHub가 예약 실행을 멈춰요. Actions 탭에서 다시 켜거나 Run workflow로 바로 돌리면 돼요. |
+| DB 용량은 괜찮아요? | 2026년 10월 기준 약 200MB예요 (Supabase 무료 한도 500MB). |
