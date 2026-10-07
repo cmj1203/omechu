@@ -48,23 +48,26 @@
 | `supabase/migrations/` | DB 표, 권한(RLS), 기본 메뉴, 식당 검색 함수 |
 | `scripts/import-places.sh` | OpenStreetMap 한국 식당 데이터를 DB에 (다시) 넣기 |
 | `scripts/osm_to_places.py` | 위 스크립트가 쓰는 변환·업로드 도구 |
+| `scripts/import-sbiz-places.sh`, `scripts/sbiz_to_places.py` | 소상공인시장진흥공단 상가(상권)정보 음식점을 DB에 더하기 |
 | `css/style.css` | 화면 스타일 |
 
 ---
 
 ## 🍽️ 식당 추천은 이렇게 해요
 
-1. 조건에 맞는 메뉴를 고른 뒤, 그 메뉴의 **검색어**가 이름에 들어간 식당을 반경 2km 안에서 찾아요. 2km 안에 메뉴나 조건에 맞는 가게가 없으면 5km까지 넓혀 찾고 그렇다고 알려 줘요. 관리자가 숨긴 가게는 빼요(DB가 멈춰 공개 서버로 찾을 때는 숨긴 가게도 나올 수 있어요). 이름 속 **제외어**에 든 검색어는 안 쳐요 (예: 커리 메뉴에서 '아우어베이커리'). 우리 DB에 넣어 둔 OpenStreetMap 한국 식당 목록(약 10만 곳)에서 찾고, DB가 멈춰 있으면 OpenStreetMap 공개 서버로 찾아요.
+1. 조건에 맞는 메뉴를 고른 뒤, 그 메뉴의 **검색어**가 이름에 들어간 식당을 반경 2km 안에서 찾아요. 2km 안에 메뉴나 조건에 맞는 가게가 없으면 5km까지 넓혀 찾고 그렇다고 알려 줘요. 관리자가 숨긴 가게는 빼요(DB가 멈춰 공개 서버로 찾을 때는 숨긴 가게도 나올 수 있어요). 이름 속 **제외어**에 든 검색어는 안 쳐요 (예: 커리 메뉴에서 '아우어베이커리'). 우리 DB에 넣어 둔 OpenStreetMap 한국 식당 목록(약 10만 곳)과 소상공인시장진흥공단 상가(상권)정보에서 가져온 음식점(메뉴 검색어에 걸리는 약 29만 곳, OpenStreetMap에 이미 있는 가게는 뺌)에서 찾고, DB가 멈춰 있으면 OpenStreetMap 공개 서버로 찾아요.
 2. 오늘의 메뉴를 파는 가까운 3곳 중 한 곳을 **추천 식당**으로 골라요. 없으면 같은 조건에 맞는 다른 메뉴의 가게를, 그것도 없으면 같은 종류의 가게(예: 근처 일식당, 술집)를 골라요.
 3. **조건에 맞는 다른 가까운 곳**에는 고른 조건(종류 · 나라)에 맞는 모든 메뉴의 가게를 가까운 순으로 보여 주고, 어떤 메뉴로 맞았는지 표시해요.
 4. 도보 시간은 직선거리로 어림한 값이에요 (직선거리 × 1.3 ÷ 분당 67m). 정확한 길은 **카카오맵 길찾기** 버튼으로 볼 수 있어요.
 5. 위치 권한을 이미 허용했거나 위치 칸에 동네를 적어 두면, 메뉴를 추천할 때 식당도 바로 같이 추천해요.
 
-식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자
+식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자, [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) (공공데이터포털)
 
 ### 식당 정보 새로고침 (매달 자동)
 
 GitHub Actions(`.github/workflows/refresh-places.yml`)가 매달 2일 새벽 3시(한국 시간)에 한국 지도 파일(약 290MB)을 내려받아 식당·카페·술집만 골라 `places` 표를 새로 채워요. 가져오는 동안에도 기존 정보로 계속 추천돼요. 새로 올린 가게가 이전보다 20% 넘게 적으면 지도 파일이 잘못된 것으로 보고 기존 가게를 지우지 않아요.
+
+이어서 소상공인시장진흥공단 상가(상권)정보(약 350MB, 분기마다 새로 나옴)를 공공데이터포털에서 내려받아, 메뉴 검색어에 걸리는 음식점만 골라 더해요(`scripts/import-sbiz-places.sh`). 구내식당·유흥 주점은 빼고, OpenStreetMap에 같은 가게(150m 안의 같은 이름)가 있으면 올리지 않아요. 관리자가 메뉴를 새로 넣으면 그 메뉴의 상가정보 가게는 다음 새로고침 때 들어와요. 두 출처는 `places.source`(`osm` · `sbiz`)로 나눠서, 한쪽을 새로 가져와도 다른 쪽 가게는 지우지 않아요.
 
 - 필요한 설정: 저장소 Settings → Secrets and variables → Actions 에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - 바로 돌리기: Actions 탭 → '식당 정보 새로고침' → Run workflow
@@ -76,6 +79,7 @@ GitHub Actions(`.github/workflows/refresh-places.yml`)가 매달 2일 새벽 3�
 brew install osmium-tool              # 처음 한 번
 ./scripts/import-places.sh            # DB까지 새로 채우기
 DRY_RUN=1 ./scripts/import-places.sh  # 내려받고 고르기만 (DB는 안 건드림)
+./scripts/import-sbiz-places.sh       # 상가정보 음식점 더하기 (DRY_RUN=1 이면 가게 수만 세요)
 ```
 
 ---
@@ -97,7 +101,8 @@ DRY_RUN=1 ./scripts/import-places.sh  # 내려받고 고르기만 (DB는 안 건
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `osm_id` | text | OpenStreetMap 번호 |
+| `osm_id` | text | OpenStreetMap 번호 (상가정보 가게는 `sb` + 상가업소번호) |
+| `source` | text | 어디서 가져왔는지: `osm` (OpenStreetMap) · `sbiz` (상가정보) |
 | `name` | text | 가게 이름 |
 | `amenity` / `shop` | text | 가게 종류 (restaurant, cafe, bar, bakery 등) |
 | `cuisine` | text | 음식 종류 (있을 때만) |

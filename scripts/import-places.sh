@@ -62,7 +62,7 @@ if [ "${DRY_RUN:-}" = "1" ]; then
 fi
 
 count_places() {
-	curl -fsS -o /dev/null -D - "$SUPABASE_URL/rest/v1/places?select=osm_id$1" \
+	curl -fsS -o /dev/null -D - "$SUPABASE_URL/rest/v1/places?select=osm_id&source=eq.osm$1" \
 		-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
 		-H "Prefer: count=exact" -H "Range: 0-0" \
 		| tr -d '\r' | awk -F/ 'tolower($1) ~ /^content-range:/ {print $2}'
@@ -85,7 +85,8 @@ if [ "$FRESH" -lt $((BEFORE * 8 / 10)) ]; then
 fi
 
 echo "4/4 지도에서 사라진 가게 지우는 중... (새로 올린 가게 ${FRESH}곳)"
-curl -fsS -X DELETE "$SUPABASE_URL/rest/v1/places?imported_at=lt.$STARTED_AT" \
+# 상가정보에서 가져온 가게(source=sbiz)는 import-sbiz-places.sh 가 따로 관리해서, OpenStreetMap 가게만 지워요.
+curl -fsS -X DELETE "$SUPABASE_URL/rest/v1/places?source=eq.osm&imported_at=lt.$STARTED_AT" \
 	-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
 	-H "Prefer: return=minimal"
 echo "끝났어요."
