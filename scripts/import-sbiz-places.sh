@@ -33,6 +33,12 @@ echo "1/3 상가정보 내려받는 중... ($FILE_ID)"
 curl -fsSL --retry 3 --retry-delay 30 --retry-all-errors -o "$WORK/sbiz.zip" \
 	"https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=$FILE_ID&fileDetailSn=1"
 
+# 공무원 맛집(import-official-picks.sh)은 가게 좌표를 찾으려고 이 파일만 받아 써요.
+if [ "${DOWNLOAD_ONLY:-}" = "1" ]; then
+	echo "내려받기만 했어요: $WORK/sbiz.zip"
+	exit 0
+fi
+
 if [ "${DRY_RUN:-}" = "1" ]; then
 	echo "2/3 (시험) 메뉴에 맞는 음식점만 골라 가게 수만 세요..."
 	python3 scripts/sbiz_to_places.py "$WORK/sbiz.zip" "$STARTED_AT"
