@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>오메추 - 공무원 맛집</title>
+	<meta name="description" content="서울시 업무추진비 식당 방문 기록.">
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+	<link rel="stylesheet" href="css/style.css">
+	<script type="module" src="js/official.js"></script>
+</head>
+<body>
+	<nav class="tabs official-tabs">
+		<a href="index.html" class="official-tab-link">메뉴 추천</a>
+		<a href="official.html" class="official-tab-link active" aria-current="page">공무원 맛집</a>
+		<a href="admin.html" class="official-tab-link">로그인</a>
+	</nav>
+	<main class="container official-page">
+		<header class="official-header">
+			<h1 class="headline">공무원 맛집</h1>
+			<p class="official-intro">
+				<a class="official-source-link" href="https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do" target="_blank" rel="noopener">데이터 출처: 서울시 업무추진비 집행내역&nbsp;↗</a>
+			</p>
+		</header>
+
+		<form id="officialSearch" class="official-search">
+			<label for="officialPlace">어디에서 찾을까요?</label>
+			<div class="official-search-row">
+				<input type="text" id="officialPlace" name="place" placeholder="동네·역 이름 (예: 시청역)">
+				<button type="submit" id="officialSearchButton" class="official-search-button">근처 찾기</button>
+			</div>
+			<button type="button" id="officialCurrentButton" class="official-search-button">현재 위치로 찾기</button>
+		</form>
+
+		<section class="official-results" aria-labelledby="officialListTitle">
+			<div class="official-results-heading">
+				<h2 id="officialListTitle">많이 간 곳 TOP 30</h2>
+				<button type="button" id="officialReset" class="text-button" hidden>TOP 30 보기</button>
+			</div>
+			<p id="officialStatus" class="official-status" aria-live="polite">맛집 기록을 불러오고 있어요.</p>
+			<ol id="officialList" class="official-list"></ol>
+		</section>
+	</main>
+</body>
+</html>

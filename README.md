@@ -18,7 +18,7 @@
 
 1. 휴대폰이나 컴퓨터 브라우저에서 **https://cmj1203.github.io/omechu/** 를 열어요.
 2. 종류(식사 · 간식 · 술)와 나라를 고르고 **추천받기**를 눌러요.
-3. 위치 칸에 동네(예: `강남역`, `전주시청`)를 적거나 비워 두고 **주변 맛집 찾기**를 눌러요. 비워 두면 브라우저가 현재 위치를 써도 되는지 물어봐요.
+3. 위치 칸에 동네(예: `강남역`, `전주시청`)를 적고 **주변 맛집 찾기**를 눌러요. 지금 있는 곳에서 찾으려면 **현재 위치로 찾기**를 누르고 브라우저의 위치 권한을 허용해요.
 4. 마음에 안 들면 **다시 추천받기**, 싫은 메뉴는 **이 메뉴 빼기**를 눌러요.
 
 ## 📌 주요 기능
@@ -29,6 +29,7 @@
 | 🔁 겹치지 않게 | 최근에 나온 5개는 다시 안 나와요. '이 메뉴 빼기'로 뺀 메뉴는 이 기기에만 기억하고 '다시 넣기'로 되돌려요 |
 | 🍽️ 주변 식당 | 추천 메뉴를 파는 가까운 식당과 도보 시간을 보여 줘요. 2km 안에 없으면 5km까지 넓혀 찾아요 |
 | 📤 공유하기 | 기기의 공유 창(카톡 등)을 열고, 공유 창이 없는 브라우저에서는 내용을 복사해요 |
+| 🏛️ 공무원 맛집 | 서울시청 공무원들이 업무추진비로 자주 간 식당 TOP 30과, 위치를 넣으면 그 근처 공무원 맛집 ([아래 설명](#️-공무원-맛집은-이렇게-골라요)) |
 | 🔐 관리자 화면 | 메뉴 추가 · 수정 · 삭제, 검색어 미리보기, 폐업 · 엉뚱한 가게 숨기기 |
 
 ## 🍽️ 추천은 이렇게 해요
@@ -46,6 +47,19 @@
 |------|------|------|
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | 약 10만 곳 | 한국의 식당 · 카페 · 술집 · 빵집 |
 | [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) | 약 29만 곳 | 메뉴 검색어가 이름에 들어간 음식점만. OpenStreetMap에 이미 있는 가게, 구내식당 · 유흥 주점은 빼요 |
+
+## 🏛️ 공무원 맛집은 이렇게 골라요
+
+1. 서울시가 공개하는 [본청 업무추진비 집행내역](https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do)(시장단 · 4급 부서장 이상)을 받아요. 사용 장소가 `잼배옥(중구 서소문동 64-4)`처럼 가게 이름과 주소로 적혀 있어요.
+2. 최근 24개월의 식사 관련 집행기록을 골라, 주소(도로명 · 지번)와 이름으로 상가(상권)정보의 음식점과 이어요. 카페 · 빵집 · 구내식당 · 유흥 주점과 상품권 · 다과 구입은 빼고, 가게를 하나로 특정할 수 없으면 집계하지 않아요.
+3. 가게별로 방문 기록 수, 이용 부서 수, 1인당 집행금액 평균(금액 ÷ 공개된 인원), 점심(11시 이상 15시 미만) · 저녁(17시 이후) 기록 수, 최근 이용일을 모아요. 기록이 2건 이상인 곳만 보여 줘요. 결제 기록 기준이라 실제 방문 횟수나 맛을 보증하지는 않아요.
+4. 작성자 이름 같은 개인정보는 저장하지 않아요.
+
+| 알아 둘 점 | 설명 |
+|------|------|
+| 어디에 많아요? | 본청 공무원 기록이라 시청 · 광화문 · 무교동 · 을지로 근처에 몰려 있어요. 다른 동네에서는 근처 결과가 적을 수 있어요 |
+| 얼마나 이어져요? | 2026년 10월 13일 API 전체 174,559건을 가져와 최근 24개월 식사 관련 기록 68,563건을 골랐고, 38,438건(56.1%)을 가게와 연결했어요. 연결된 기록이 2건 이상인 가게는 1,534곳이에요 |
+| 언제 바뀌어요? | 업무추진비는 집행 다음 달에 공개되고, 매달 자동 새로고침 때 함께 다시 모아요 |
 
 ## ⚙️ 내 컴퓨터에서 실행하기
 
@@ -65,7 +79,7 @@ python3 -m http.server 8000
 
 ## 🔄 식당 정보 새로고침
 
-GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받아 DB를 새로 채워요. 가져오는 동안에도 기존 정보로 계속 추천돼요.
+GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 맛집을 다시 받아 DB를 새로 채워요. 가져오는 동안에도 기존 정보로 계속 추천돼요.
 
 | 항목 | 내용 |
 |------|------|
@@ -131,6 +145,8 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받�
 | `supabase/migrations/` | DB 표, 권한(RLS), 기본 메뉴, 식당 검색 함수 |
 | `scripts/import-places.sh`, `scripts/osm_to_places.py` | OpenStreetMap 식당을 DB에 (다시) 넣기 |
 | `scripts/import-sbiz-places.sh`, `scripts/sbiz_to_places.py` | 상가(상권)정보 음식점을 DB에 더하기 |
+| `official.html`, `js/official.js` | 공무원 맛집 화면 |
+| `scripts/import-official-picks.sh`, `scripts/official_picks.py` | 업무추진비에서 공무원 맛집을 모아 DB에 넣기 |
 | `.github/workflows/refresh-places.yml` | 매달 자동 새로고침 |
 
 </details>
@@ -161,6 +177,20 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받�
 | `phone`, `address` | text | 전화, 주소 (있을 때만) |
 | `lat`, `lng`, `location` | 좌표 | 위치 (거리 계산용 색인) |
 
+**`official_picks` (공무원 맛집)**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `place_key` | text | 상가정보 가게 번호 (`sb` + 상가업소번호) |
+| `name`, `address`, `category` | text | 가게 이름, 주소, 업종 (예: 백반/한정식) |
+| `lat`, `lng`, `location` | 좌표 | 위치 (근처 찾기용 색인) |
+| `visits`, `departments` | integer | 최근 2년 업무추진비로 간 횟수, 간 부서 수 |
+| `avg_per_person` | integer | 1인당 평균 금액(원, 인원을 알 때만) |
+| `lunch_visits`, `dinner_visits` | integer | 점심(11~15시) · 저녁(17시~) 횟수 |
+| `last_visit` | date | 최근 방문일 |
+
+근처 찾기는 `official_picks_near(p_lat, p_lng, p_radius)` 함수로 해요 (가까운 순 30곳, 반경 최대 5km).
+
 **`hidden_places` (관리자가 숨긴 가게)**
 
 | 필드 | 타입 | 설명 |
@@ -177,7 +207,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받�
 
 **권한 (RLS)**
 
-- 메뉴 · 식당 · 숨긴 가게 보기: 누구나
+- 메뉴 · 식당 · 공무원 맛집 · 숨긴 가게 보기: 누구나 (공무원 맛집은 가져오기 스크립트만 써요)
 - 메뉴 추가 · 수정 · 삭제, 가게 숨기기 · 다시 보이기: `admins`에 등록된 계정만
 - 공개 키(publishable)는 브라우저에 보여도 괜찮아요. 쓰기 권한은 DB 정책이 막아요.
 - DB가 멈춰 공개 서버로 찾을 때는 숨긴 가게도 나올 수 있어요.
@@ -200,7 +230,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받�
    ```
    insert into public.admins (user_id) values ('<계정 uuid>');
    ```
-7. 매달 자동 새로고침을 쓰려면 저장소 Settings → Secrets and variables → Actions 에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`를 넣어요.
+7. 매달 자동 새로고침을 쓰려면 저장소 Settings → Secrets and variables → Actions 에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SEOUL_OPENAPI_KEY`를 넣어요. `SEOUL_OPENAPI_KEY`는 [서울 열린데이터광장](https://data.seoul.go.kr)에서 무료로 받는 인증키예요(공무원 맛집용, `.env.local`에도 적어요).
 
 새 표나 권한은 `supabase/migrations/`에 SQL 파일을 추가하고 `supabase db push` 하면 돼요.
 
@@ -217,6 +247,7 @@ brew install osmium-tool                   # 처음 한 번
 ./scripts/import-sbiz-places.sh            # 상가정보 음식점 더하기 (파일 약 350MB)
 DRY_RUN=1 ./scripts/import-places.sh       # 시험: 내려받고 고르기만 (DB는 안 건드림)
 DRY_RUN=1 ./scripts/import-sbiz-places.sh  # 시험: 올릴 가게 수만 세기
+./scripts/import-official-picks.sh         # 공무원 맛집 다시 모으기 (SEOUL_OPENAPI_KEY 필요)
 ```
 
 - OpenStreetMap: 식당 · 카페 · 술집 · 빵집만 골라 `places` 표를 새로 채워요.
@@ -227,6 +258,6 @@ DRY_RUN=1 ./scripts/import-sbiz-places.sh  # 시험: 올릴 가게 수만 세기
 
 ---
 
-식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자, [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) (공공데이터포털)
+식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자, [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) (공공데이터포털), [서울시 본청 업무추진비](https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do) (서울 열린데이터광장)
 
 예전 버전(JSP + MySQL, 학교 주변 맛집 추천)은 [lllllIIlI/jsp](https://github.com/lllllIIlI/jsp)에 있어요.
