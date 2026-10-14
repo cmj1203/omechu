@@ -618,13 +618,38 @@ a.text-button {
 }
 
 /* 결과가 길어도 맨 아래까지 내리지 않고 바로 누를 수 있게 화면 아래에 붙여 둬요 */
-#recommend {
+.main-actions {
 	position: sticky;
 	bottom: 16px;
 	z-index: 10;
-	width: min(100%, 320px);
+	display: flex;
+	gap: 8px;
+	width: min(100%, 420px);
+	margin: 0 auto;
+}
+
+#recommend {
+	flex: 1;
+	min-width: 0;
+	width: auto;
 	height: 56px;
+	margin: 0;
 	box-shadow: 0 8px 20px var(--accent-shadow);
+}
+
+#storeList {
+	flex: none;
+	height: 56px;
+	padding: 0 20px;
+	font-size: 17px;
+	font-weight: 700;
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+#storeList:disabled {
+	color: var(--ash);
+	cursor: wait;
+	box-shadow: none;
 }
 
 #recommend:disabled {

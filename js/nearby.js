@@ -1,6 +1,9 @@
 import { currentPosition, geocode, locationAlreadyAllowed } from "./nearby-location.js";
 import { footer, othersList, paragraph, restaurantCard, similarLabel } from "./nearby-renderer.js";
-import { searchRestaurants } from "./nearby-restaurant-search.js";
+import { listRestaurants, searchRestaurants } from "./nearby-restaurant-search.js";
+
+// 가게 목록에는 메뉴가 하나로 정해져 있지 않아서, '구글 지도에서 더 찾기'는 '맛집'으로 찾아요.
+const LIST_TARGET = { name: "맛집" };
 
 export function initNearby(section) {
 	const button = section.querySelector("#nearbyBtn");
@@ -9,6 +12,7 @@ export function initNearby(section) {
 	const result = section.querySelector("#nearbyResult");
 	let menu = null;
 	let filterMenus = [];
+	let listMode = false;
 	let searchId = 0;
 
 	button.addEventListener("click", () => findRestaurants(false));
@@ -20,27 +24,39 @@ export function initNearby(section) {
 	});
 
 	return {
-		async show(nextMenu, menusForFilters) {
+		show(nextMenu, menusForFilters) {
 			menu = nextMenu;
 			filterMenus = menusForFilters;
-			const id = ++searchId;
-			button.disabled = false;
-			button.textContent = idleLabel();
-			currentButton.disabled = false;
-			currentButton.textContent = "현재 위치로 찾기";
-			result.replaceChildren();
-			section.hidden = false;
-			if (placeInput.value.trim()) {
-				findRestaurants(false);
-			} else if (await locationAlreadyAllowed() && id === searchId) {
-				findRestaurants(true);
-			}
+			listMode = false;
+			start();
+		},
+		// 메뉴 하나 대신, 고른 조건의 메뉴를 파는 가게를 모두 가까운 순으로 보여 줘요.
+		showList(menusForFilters) {
+			menu = LIST_TARGET;
+			filterMenus = menusForFilters;
+			listMode = true;
+			start();
 		},
 		hide() {
 			searchId += 1;
 			section.hidden = true;
 		},
 	};
+
+	async function start() {
+		const id = ++searchId;
+		button.disabled = false;
+		button.textContent = idleLabel();
+		currentButton.disabled = false;
+		currentButton.textContent = "현재 위치로 찾기";
+		result.replaceChildren();
+		section.hidden = false;
+		if (placeInput.value.trim()) {
+			findRestaurants(false);
+		} else if (await locationAlreadyAllowed() && id === searchId) {
+			findRestaurants(true);
+		}
+	}
 
 	async function findRestaurants(useCurrentPosition) {
 		const place = useCurrentPosition ? "" : placeInput.value.trim();
@@ -52,6 +68,7 @@ export function initNearby(section) {
 		const id = ++searchId;
 		const target = menu;
 		const pool = filterMenus;
+		const asList = listMode;
 		try {
 			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
 			const origin = useCurrentPosition ? await currentPosition() : await geocode(place);
@@ -60,6 +77,13 @@ export function initNearby(section) {
 				return;
 			}
 			setBusy("식당 찾는 중…", useCurrentPosition);
+			if (asList) {
+				const found = await listRestaurants(pool, origin);
+				if (id === searchId) {
+					renderList(target, origin, found);
+				}
+				return;
+			}
 			const found = await searchRestaurants(target, pool, origin);
 			if (id === searchId) {
 				render(target, origin, found);
@@ -79,7 +103,20 @@ export function initNearby(section) {
 	}
 
 	function idleLabel() {
-		return "주변 '" + menu.name + "' 식당 추천";
+		return listMode ? "주변 가게 찾기" : "주변 '" + menu.name + "' 식당 추천";
+	}
+
+	function renderList(target, origin, found) {
+		if (found.places.length === 0) {
+			showMessage(origin.label + " 근처 " + found.searchedKm + "km 안에서 조건에 맞는 가게를 찾지 못했어요.", target, origin);
+			return;
+		}
+		const nodes = [];
+		if (found.wider) {
+			nodes.push(paragraph("nearby-note", "2km 안에 맞는 가게가 없어서 5km까지 찾았어요."));
+		}
+		nodes.push(othersList(found.places, origin.label + " 가까운 가게 " + found.places.length + "곳"), footer(target, origin));
+		result.replaceChildren(...nodes);
 	}
 
 	function setBusy(label, useCurrentPosition) {
@@ -100,12 +137,14 @@ export function initNearby(section) {
 		}
 		if (found.mode === "filter") {
 			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은\u00a0조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
+		} else if (found.mode === "broad") {
+			nodes.push(paragraph("nearby-note", "'" + target.name + "'" + subjectParticle(target.name) + " 주력인 가게는 못 찾아서, 이름에 '" + found.broadTerm + "'" + subjectParticle(found.broadTerm) + " 들어간\u00a0가게를 골랐어요."));
 		} else if (found.mode === "similar") {
 			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}
 		nodes.push(restaurantCard(found.pick, origin));
 		if (found.others.length > 0) {
-			nodes.push(othersList(found.others, found.mode === "similar" ? "다른 가까운 곳" : "조건에 맞는 다른 가까운 곳"));
+			nodes.push(othersList(found.others, othersTitle(target, found)));
 		}
 		nodes.push(footer(target, origin));
 		result.replaceChildren(...nodes);
@@ -114,4 +153,20 @@ export function initNearby(section) {
 	function showMessage(text, target, where) {
 		result.replaceChildren(paragraph("nearby-message", text), footer(target, where));
 	}
+}
+
+// 마지막 글자에 받침이 있으면 '이', 없거나 한글이 아니면 '가'
+function subjectParticle(word) {
+	const code = word.charCodeAt(word.length - 1) - 0xac00;
+	return code >= 0 && code <= 11171 && code % 28 !== 0 ? "이" : "가";
+}
+
+function othersTitle(target, found) {
+	if (found.othersSameMenu) {
+		return "'" + target.name + "' 파는 다른 가까운 곳";
+	}
+	if (found.othersBroad || found.mode === "broad") {
+		return "비슷한 다른 가까운 곳";
+	}
+	return found.mode === "similar" ? "다른 가까운 곳" : "조건에 맞는 다른 가까운 곳";
 }

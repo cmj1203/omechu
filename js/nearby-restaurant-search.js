@@ -1,9 +1,12 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
-import { bestMenu, hasSearchTerm, nameForMenu, similarFor } from "./nearby-menu-matching.js";
+import { bestMenu, broadTermIn, hasMainTerm, hasSearchTerm, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
 const MAX_OTHERS = 8;
+const MAX_LIST = 30;
+const SAME_PLACE_METERS = 20;
+const HANGUL = /[가-힣]/;
 
 export async function searchRestaurants(menu, filterMenus, origin) {
 	let forMenu;
@@ -12,7 +15,7 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	try {
 		[forMenu, forFilters] = await Promise.all([
 			searchDatabase(origin, [menu], similarFor(menu)),
-			searchDatabase(origin, filterMenus, null),
+			searchDatabase(origin, filterMenus, null, SEARCH_RADIUS_METERS, mainTerms),
 		]);
 	} catch (error) {
 		console.warn("식당 DB에서 찾지 못해서 OpenStreetMap 공개 서버로 찾아요.", error);
@@ -21,17 +24,17 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 		forFilters = forMenu.filter((place) => place.matched);
 	}
 	const near = choose(menu, filterMenus, forMenu, forFilters);
-	if (near.mode === "menu" || near.mode === "filter" || !fromDatabase) {
+	if (near.mode === "menu" || near.mode === "broad" || near.mode === "filter" || !fromDatabase) {
 		return { ...near, searchedKm: SEARCH_RADIUS_METERS / 1000 };
 	}
 	// 2km 안에 메뉴·조건에 맞는 가게가 없으면 5km까지 넓혀서 다시 찾아요. 비슷한 가게는 2km 안 결과를 그대로 써요.
 	try {
 		const [widerMenu, widerFilters] = await Promise.all([
 			searchDatabase(origin, [menu], null, WIDER_RADIUS_METERS),
-			searchDatabase(origin, filterMenus, null, WIDER_RADIUS_METERS),
+			searchDatabase(origin, filterMenus, null, WIDER_RADIUS_METERS, mainTerms),
 		]);
 		const wider = choose(menu, filterMenus, widerMenu, widerFilters);
-		if (wider.mode === "menu" || wider.mode === "filter") {
+		if (wider.mode === "menu" || wider.mode === "broad" || wider.mode === "filter") {
 			return { ...wider, wider: true, searchedKm: WIDER_RADIUS_METERS / 1000 };
 		}
 	} catch (error) {
@@ -41,16 +44,58 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	return { ...near, searchedKm: WIDER_RADIUS_METERS / 1000 };
 }
 
+// 가게 목록: 고른 조건의 메뉴를 주력으로 파는 가게를 가까운 순으로 최대 30곳. 2km 안에 없으면 5km까지 찾아요.
+export async function listRestaurants(filterMenus, origin) {
+	for (const radius of [SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS]) {
+		let found;
+		try {
+			found = await searchDatabase(origin, filterMenus, null, radius, mainTerms);
+		} catch (error) {
+			throw new Error("가게 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요.", { cause: error });
+		}
+		const places = withoutDuplicates(found
+			.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, null)?.name }))
+			.filter((place) => place.menuName))
+			.sort((a, b) => a.distance - b.distance)
+			.slice(0, MAX_LIST);
+		if (places.length > 0 || radius === WIDER_RADIUS_METERS) {
+			return { places, wider: radius === WIDER_RADIUS_METERS, searchedKm: radius / 1000 };
+		}
+	}
+}
+
 function choose(menu, filterMenus, forMenu, forFilters) {
-	const suitable = forFilters
+	const suitable = withoutDuplicates(forFilters
 		.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, menu)?.name }))
-		.filter((place) => place.menuName);
-	const exact = forMenu
+		.filter((place) => place.menuName));
+	// 이름에 메뉴 검색어가 든 가게 중, 주력 검색어(넓은 말 말고)가 든 곳을 먼저 골라요.
+	// 넓은 말만 든 곳(김치찌개의 '찌개'집 등)은 주력 가게가 없을 때만 골라요.
+	const named = forMenu
 		.filter((place) => place.matched && hasSearchTerm(nameForMenu(place, menu), menu))
 		.map((place) => ({ ...place, menuName: menu.name }));
+	const exact = withoutDuplicates(named.filter((place) => hasMainTerm(nameForMenu(place, menu), menu)));
+	const broad = withoutDuplicates(named.filter((place) => !hasMainTerm(nameForMenu(place, menu), menu)));
 	if (exact.length > 0) {
 		const pick = pickNear(exact);
+		// 다른 가까운 곳도 같은 메뉴를 파는 가게로 보여 줘요. 같은 메뉴 가게가 이 한 곳뿐이면 조건에 맞는 다른 메뉴 가게를 보여 줘요.
+		// 같은 메뉴 목록에서는 메뉴 이름 표시가 되풀이되니 빼요.
+		const sameMenu = othersExcept(exact, pick).map(({ menuName, ...place }) => place);
+		if (sameMenu.length > 0) {
+			return { mode: "menu", pick, others: sameMenu, othersSameMenu: true };
+		}
+		// 주력 가게가 이 한 곳뿐이면, 넓은 말 가게(잔치국수의 '국수'집 등)를 먼저 보여 줘요.
+		if (broad.length > 0) {
+			return { mode: "menu", pick, others: othersExcept(broad, pick).map(({ menuName, ...place }) => place), othersBroad: true };
+		}
 		return { mode: "menu", pick, others: othersExcept(suitable, pick) };
+	}
+	if (broad.length > 0) {
+		const pick = pickNear(broad);
+		const others = othersExcept(broad, pick).map(({ menuName, ...place }) => place);
+		const broadTerm = broadTermIn(nameForMenu(pick, menu), menu);
+		return others.length > 0
+			? { mode: "broad", pick, broadTerm, others }
+			: { mode: "broad", pick, broadTerm, others: othersExcept(suitable, pick) };
 	}
 	if (suitable.length > 0) {
 		const pick = pickNear(suitable);
@@ -74,6 +119,44 @@ function othersExcept(places, pick) {
 		.filter((place) => placeKey(place) !== pickKey)
 		.sort((a, b) => a.distance - b.distance)
 		.slice(0, MAX_OTHERS);
+}
+
+// 같은 가게가 두 번 올라와 있으면 하나만 남겨요. 지도 자료에 영어 이름과 한글 이름으로 따로 있거나,
+// '시청역 봉평막국수'와 '시청역봉평막국수'처럼 띄어쓰기만 다르게 있어요.
+// 같은 메뉴로 걸렸고 서로 20m 안이며, 띄어쓴 이름 한쪽이 다른 쪽에 들어 있거나 한쪽 이름에 한글이 없으면 같은 가게로 봐요.
+// 남길 때는 주소가 있는 쪽을 고르고, 공무원 단골 횟수는 큰 쪽을 써요.
+function withoutDuplicates(places) {
+	const kept = [];
+	for (const place of [...places].sort((a, b) => a.distance - b.distance)) {
+		const index = kept.findIndex((other) => samePlace(other, place));
+		if (index === -1) {
+			kept.push(place);
+			continue;
+		}
+		const other = kept[index];
+		const better = !other.address && place.address ? place : other;
+		kept[index] = { ...better, officialVisits: Math.max(other.officialVisits ?? 0, place.officialVisits ?? 0) };
+	}
+	return kept;
+}
+
+function samePlace(a, b) {
+	if (a.menuName !== b.menuName || metersBetween(a, b) > SAME_PLACE_METERS) {
+		return false;
+	}
+	const nameA = compactName(a.name);
+	const nameB = compactName(b.name);
+	return nameA.includes(nameB) || nameB.includes(nameA) || !HANGUL.test(a.name) || !HANGUL.test(b.name);
+}
+
+function compactName(name) {
+	return name.toLowerCase().replace(/\s/g, "");
+}
+
+function metersBetween(a, b) {
+	const dy = (a.lat - b.lat) * 111000;
+	const dx = (a.lng - b.lng) * 111000 * Math.cos((a.lat * Math.PI) / 180);
+	return Math.hypot(dx, dy);
 }
 
 function placeKey(place) {

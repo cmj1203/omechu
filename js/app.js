@@ -3,6 +3,7 @@ import { initNearby } from "./nearby.js";
 
 const form = document.getElementById("filters");
 const recommendButton = document.getElementById("recommend");
+const storeListButton = document.getElementById("storeList");
 const result = document.getElementById("result");
 const dataNote = document.getElementById("dataNote");
 const lockNote = document.getElementById("cuisineLockNote");
@@ -33,6 +34,7 @@ try {
 	}
 	recommendButton.disabled = false;
 	recommendButton.textContent = "추천받기";
+	storeListButton.disabled = false;
 } catch (error) {
 	console.error(error);
 	recommendButton.textContent = "메뉴를 불러오지 못했어요";
@@ -41,22 +43,8 @@ try {
 
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
-	const filters = Object.fromEntries(new FormData(form));
-	const candidates = menus.filter((menu) =>
-		(filters.kind === "전체" || menu.kind === filters.kind)
-		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
-
-	if (candidates.length === 0) {
-		current = null;
-		nearby.hide();
-		showMessage("조건에 맞는 메뉴가 없어요. 조건을 바꿔 보세요.");
-		return;
-	}
-	const allowed = candidates.filter((menu) => !skipped.includes(menu.name));
-	if (allowed.length === 0) {
-		current = null;
-		nearby.hide();
-		showMessage("이 조건의 메뉴를 모두 뺐어요.", skippedNote(true));
+	const allowed = allowedMenus(true);
+	if (!allowed) {
 		return;
 	}
 	// 최근에 나온 5개는 다시 안 나오게 골라요. 조건에 맞는 메뉴가 그보다 적으면 바로 전 메뉴만 피해요.
@@ -74,6 +62,43 @@ form.addEventListener("submit", (event) => {
 	nearby.show(current, allowed);
 	recommendButton.textContent = "다시 추천받기";
 });
+
+// 고른 조건(뺀 메뉴 제외)에 맞는 메뉴를 파는 가게를 가까운 순으로 보여 줘요.
+storeListButton.addEventListener("click", () => {
+	const allowed = allowedMenus(false);
+	if (!allowed) {
+		return;
+	}
+	current = null;
+	const filters = Object.fromEntries(new FormData(form));
+	result.replaceChildren(
+		paragraph("menu-label", "가게 목록"),
+		paragraph("menu-tags", ([filters.kind, filters.cuisine].filter((value) => value !== "전체").join(" | ") || "전체") + " · 메뉴 " + allowed.length + "개"),
+	);
+	nearby.showList(allowed);
+});
+
+// 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.
+function allowedMenus(recommendAgain) {
+	const filters = Object.fromEntries(new FormData(form));
+	const candidates = menus.filter((menu) =>
+		(filters.kind === "전체" || menu.kind === filters.kind)
+		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
+	if (candidates.length === 0) {
+		current = null;
+		nearby.hide();
+		showMessage("조건에 맞는 메뉴가 없어요. 조건을 바꿔 보세요.");
+		return null;
+	}
+	const allowed = candidates.filter((menu) => !skipped.includes(menu.name));
+	if (allowed.length === 0) {
+		current = null;
+		nearby.hide();
+		showMessage("이 조건의 메뉴를 모두 뺐어요.", skippedNote(recommendAgain));
+		return null;
+	}
+	return allowed;
+}
 
 function lockCuisine() {
 	const kind = form.elements.kind.value;
