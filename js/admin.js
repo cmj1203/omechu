@@ -1,4 +1,4 @@
-import { AMENITIES_BY_KIND, BAKERY_SHOPS, hasSearchTerm, nameForMenu, searchTerms } from "./nearby-menu-matching.js";
+import { amenitiesFor, hasSearchTerm, nameForMenu, searchTerms, shopsFor } from "./nearby-menu-matching.js";
 import { getSupabase, SUPABASE_CONFIGURED } from "./supabase.js";
 
 const notice = document.getElementById("adminNotice");
@@ -82,13 +82,17 @@ menuForm.addEventListener("submit", async (event) => {
 	const fields = new FormData(menuForm);
 	const record = {
 		name: fields.get("name").trim(),
-		kind: fields.get("kind"),
+		kinds: fields.getAll("kinds"),
 		cuisine: fields.get("cuisine"),
 		search_terms: commaList(fields.get("search_terms")),
 		exclude_terms: commaList(fields.get("exclude_terms")),
 	};
 	if (!record.name) {
 		setMessage(formMessage, "메뉴 이름을 적어 주세요.", true);
+		return;
+	}
+	if (record.kinds.length === 0) {
+		setMessage(formMessage, "종류를 하나 이상 골라 주세요.", true);
 		return;
 	}
 
@@ -133,8 +137,8 @@ async function openManager(user) {
 async function refreshList() {
 	const { data, error } = await supabase
 		.from("menus")
-		.select("id, name, kind, cuisine, search_terms, exclude_terms")
-		.order("kind")
+		.select("id, name, kinds, cuisine, search_terms, exclude_terms")
+		.order("kinds")
 		.order("cuisine")
 		.order("name");
 	if (error) {
@@ -177,7 +181,7 @@ function menuRow(menu) {
 	const row = document.createElement("tr");
 	row.append(
 		textCell(menu.name),
-		textCell(menu.kind),
+		textCell(menu.kinds.join(" ")),
 		textCell(menu.cuisine),
 		textCell(menu.search_terms.join(", "), "terms"),
 		textCell(menu.exclude_terms.join(", "), "terms"),
@@ -189,7 +193,9 @@ function menuRow(menu) {
 function startEdit(menu) {
 	editingId = menu.id;
 	menuForm.elements.namedItem("name").value = menu.name;
-	menuForm.elements.namedItem("kind").value = menu.kind;
+	for (const box of menuForm.querySelectorAll("input[name=kinds]")) {
+		box.checked = menu.kinds.includes(box.value);
+	}
 	menuForm.elements.namedItem("cuisine").value = menu.cuisine;
 	menuForm.elements.namedItem("search_terms").value = menu.search_terms.join(", ");
 	menuForm.elements.namedItem("exclude_terms").value = menu.exclude_terms.join(", ");
@@ -230,12 +236,12 @@ async function removeMenu(menu) {
 
 menuSearch.addEventListener("input", renderMenuRows);
 
-for (const field of ["name", "kind", "search_terms", "exclude_terms"]) {
-	menuForm.elements.namedItem(field).addEventListener("input", () => {
+menuForm.addEventListener("input", (event) => {
+	if (["name", "kinds", "search_terms", "exclude_terms"].includes(event.target.name)) {
 		clearTimeout(previewTimer);
 		previewTimer = setTimeout(updatePreview, 400);
-	});
-}
+	}
+});
 
 // 고치는 중인 검색어·제외어로 강남역 2km 안에서 가게가 몇 곳 잡히는지 보여 줘요. 추천 화면과 같은 방식으로 세요.
 async function updatePreview() {
@@ -243,11 +249,11 @@ async function updatePreview() {
 	const fields = new FormData(menuForm);
 	const draft = {
 		name: fields.get("name").trim(),
-		kind: fields.get("kind"),
+		kinds: fields.getAll("kinds"),
 		search_terms: commaList(fields.get("search_terms")),
 		exclude_terms: commaList(fields.get("exclude_terms")),
 	};
-	if (!draft.name) {
+	if (!draft.name || draft.kinds.length === 0) {
 		termsPreview.textContent = "";
 		return;
 	}
@@ -257,8 +263,8 @@ async function updatePreview() {
 		p_lng: PREVIEW_SPOT.lng,
 		p_radius: 2000,
 		p_terms: searchTerms(draft),
-		p_amenities: AMENITIES_BY_KIND[draft.kind],
-		p_shops: draft.kind === "간식" ? BAKERY_SHOPS : [],
+		p_amenities: amenitiesFor([draft]),
+		p_shops: shopsFor([draft]),
 		p_similar_amenities: [],
 		p_similar_cuisine: null,
 	});

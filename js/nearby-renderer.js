@@ -1,11 +1,11 @@
 export function similarLabel(menu) {
-	if (menu.kind === "술") {
-		return "술집";
+	if (menu.kinds.includes("식사")) {
+		return menu.cuisine === "아시아" ? "아시아 음식점" : menu.cuisine + "당";
 	}
-	if (menu.kind === "간식") {
+	if (menu.kinds.includes("간식")) {
 		return "카페·디저트 가게";
 	}
-	return menu.cuisine === "아시아" ? "아시아 음식점" : menu.cuisine + "당";
+	return "술집";
 }
 
 export function restaurantCard(restaurant, origin) {

@@ -35,13 +35,12 @@
 			<form id="menuForm" class="panel">
 				<h2 id="formTitle">메뉴 추가</h2>
 				<label>메뉴 이름 <input type="text" name="name" maxlength="30" required placeholder="예: 김치찌개"></label>
-				<label>종류
-					<select name="kind">
-						<option>식사</option>
-						<option>간식</option>
-						<option>술</option>
-					</select>
-				</label>
+				<fieldset class="kind-checks">
+					<legend>종류</legend>
+					<label><input type="checkbox" name="kinds" value="식사" checked> 식사</label>
+					<label><input type="checkbox" name="kinds" value="간식"> 간식</label>
+					<label><input type="checkbox" name="kinds" value="술"> 술</label>
+				</fieldset>
 				<label>나라
 					<select name="cuisine">
 						<option>한식</option>

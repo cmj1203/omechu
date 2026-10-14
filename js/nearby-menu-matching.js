@@ -17,11 +17,20 @@ export const CUISINE_TAGS = {
 	아시아: "vietnamese|thai|indian|asian|indonesian|malaysian|nepalese",
 };
 
+// 메뉴는 식사·간식·술 중 여러 종류(kinds)에 들 수 있어서, 가게 종류는 그 종류들을 모두 합쳐요.
 export function similarFor(menu) {
 	return {
-		amenities: SIMILAR_AMENITIES_BY_KIND[menu.kind],
-		cuisine: menu.kind === "식사" ? CUISINE_TAGS[menu.cuisine] : null,
+		amenities: [...new Set(menu.kinds.flatMap((kind) => SIMILAR_AMENITIES_BY_KIND[kind]))],
+		cuisine: menu.kinds.includes("식사") ? CUISINE_TAGS[menu.cuisine] : null,
 	};
+}
+
+export function amenitiesFor(menus) {
+	return [...new Set(menus.flatMap((menu) => menu.kinds.flatMap((kind) => AMENITIES_BY_KIND[kind])))];
+}
+
+export function shopsFor(menus) {
+	return menus.some((menu) => menu.kinds.includes("간식")) ? BAKERY_SHOPS : [];
 }
 
 export function bestMenu(place, filterMenus, recommended) {
@@ -77,7 +86,8 @@ function broadTerms(menu) {
 }
 
 function fitsKind(menu, place) {
-	return AMENITIES_BY_KIND[menu.kind].includes(place.amenity) || (menu.kind === "간식" && BAKERY_SHOPS.includes(place.shop));
+	return menu.kinds.some((kind) => AMENITIES_BY_KIND[kind].includes(place.amenity))
+		|| (menu.kinds.includes("간식") && BAKERY_SHOPS.includes(place.shop));
 }
 
 export function searchTerms(menu) {

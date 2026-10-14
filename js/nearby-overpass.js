@@ -1,5 +1,5 @@
 import { SEARCH_RADIUS_METERS, formatPhone, walkMinutes } from "./nearby-database.js";
-import { AMENITIES_BY_KIND, BAKERY_SHOPS, CUISINE_TAGS, SIMILAR_AMENITIES_BY_KIND, hasSearchTerm, nameForMenu, searchTerms } from "./nearby-menu-matching.js";
+import { amenitiesFor, hasSearchTerm, nameForMenu, searchTerms, shopsFor, similarFor } from "./nearby-menu-matching.js";
 
 const OVERPASS_ENDPOINTS = [
 	"https://overpass-api.de/api/interpreter",
@@ -18,16 +18,18 @@ export async function searchOverpassForMenu(menu, origin) {
 
 function menuQuery(menu, origin) {
 	const byName = "[\"name\"~\"" + searchTerms(menu).join("|") + "\",i]";
-	const filters = ["[\"amenity\"~\"^(" + AMENITIES_BY_KIND[menu.kind].join("|") + ")$\"]" + byName];
-	if (menu.kind === "간식") {
-		filters.push("[\"shop\"~\"^(" + BAKERY_SHOPS.join("|") + ")$\"]" + byName);
+	const filters = ["[\"amenity\"~\"^(" + amenitiesFor([menu]).join("|") + ")$\"]" + byName];
+	const shops = shopsFor([menu]);
+	if (shops.length > 0) {
+		filters.push("[\"shop\"~\"^(" + shops.join("|") + ")$\"]" + byName);
 	}
 	return overpassQuery(origin, filters);
 }
 
 function similarQuery(menu, origin) {
-	const amenities = "[\"amenity\"~\"^(" + SIMILAR_AMENITIES_BY_KIND[menu.kind].join("|") + ")$\"]";
-	const cuisine = menu.kind === "식사" ? "[\"cuisine\"~\"" + CUISINE_TAGS[menu.cuisine] + "\",i]" : "";
+	const similar = similarFor(menu);
+	const amenities = "[\"amenity\"~\"^(" + similar.amenities.join("|") + ")$\"]";
+	const cuisine = similar.cuisine ? "[\"cuisine\"~\"" + similar.cuisine + "\",i]" : "";
 	return overpassQuery(origin, [amenities + cuisine + "[\"name\"]"]);
 }
 

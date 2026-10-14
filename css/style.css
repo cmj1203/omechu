@@ -751,6 +751,41 @@ a.text-button {
 	text-wrap: balance;
 }
 
+/* 관리자 메뉴 폼의 종류 고르기: 식사·간식·술을 여러 개 고를 수 있어요 */
+.kind-checks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.kind-checks legend {
+	width: 100%;
+	margin-bottom: 6px;
+	padding: 0;
+}
+
+.panel .kind-checks label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 44px;
+	font-size: 15px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.kind-checks input {
+	width: 20px;
+	height: 20px;
+	margin: 0;
+	accent-color: var(--ink);
+}
+
 .panel input[type="text"],
 .panel input[type="email"],
 .panel input[type="password"],
