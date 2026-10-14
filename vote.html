@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>오메추 - 같이 정하기</title>
+	<meta name="description" content="메뉴 후보를 링크로 공유하고 같이 투표해요.">
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+	<link rel="stylesheet" href="css/style.css">
+	<link rel="stylesheet" href="css/vote.css">
+	<script type="module" src="js/vote.js"></script>
+</head>
+<body>
+	<nav class="tabs official-tabs">
+		<a href="index.html" class="official-tab-link">메뉴 추천</a>
+		<a href="official.html" class="official-tab-link">공무원 맛집</a>
+		<a href="admin.html" class="official-tab-link">로그인</a>
+	</nav>
+	<main class="container vote-page">
+		<section id="loadingView" class="vote-card" aria-live="polite">
+			<p class="placeholder">투표를 불러오고 있어요…</p>
+		</section>
+
+		<section id="createView" hidden>
+			<h1 class="headline">같이 정하기</h1>
+			<div class="vote-card">
+				<p class="vote-label">후보 <span id="optionCount">0</span>/5</p>
+				<ul id="optionChips" class="vote-chips"></ul>
+				<form id="addForm" class="vote-add">
+					<input type="text" id="optionInput" maxlength="30" autocomplete="off" placeholder="메뉴 이름" aria-label="후보 메뉴">
+					<button type="submit" id="addButton" class="vote-add-button">추가</button>
+				</form>
+				<button type="button" id="createButton" class="primary vote-create" disabled>투표 만들기</button>
+				<p id="createMessage" class="vote-message" aria-live="polite"></p>
+			</div>
+		</section>
+
+		<section id="pollView" hidden>
+			<h1 class="headline">오늘 뭐 먹을까요?</h1>
+			<p id="deadline" class="vote-deadline"></p>
+			<div class="vote-card">
+				<ul id="optionList" class="vote-options" aria-label="후보"></ul>
+				<p id="pollMessage" class="vote-message" aria-live="polite"></p>
+				<div class="vote-actions">
+					<button type="button" id="refreshButton" class="text-button">결과 새로고침</button>
+					<button type="button" id="shareButton" class="vote-share">링크 공유하기</button>
+				</div>
+			</div>
+		</section>
+
+		<section id="noticeView" class="vote-card vote-notice" hidden>
+			<p id="noticeText" class="vote-notice-text"></p>
+			<a href="index.html" class="vote-link-button">메뉴 추천으로</a>
+		</section>
+	</main>
+</body>
+</html>

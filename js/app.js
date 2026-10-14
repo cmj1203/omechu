@@ -19,6 +19,7 @@ const SKIPPED_KEY = "omechu.skippedMenus";
 
 let menus = [];
 let current = null;
+let lastAllowed = [];
 let recent = [];
 let skipped = readSkipped();
 
@@ -68,6 +69,7 @@ form.addEventListener("submit", (event) => {
 	}
 	current = pool[Math.floor(Math.random() * pool.length)];
 	recent = [current.name, ...recent.filter((name) => name !== current.name)].slice(0, RECENT_LIMIT);
+	lastAllowed = allowed;
 	showMenu(current);
 	nearby.show(current, allowed);
 	recommendButton.textContent = "다시 추천받기";
@@ -109,10 +111,25 @@ function menuActions(menu) {
 		saveSkipped();
 		form.requestSubmit();
 	}));
+	actions.append(pollLink(menu));
 	if (skipped.length > 0) {
 		actions.append(skippedNote(false));
 	}
 	return actions;
+}
+
+// 지금 메뉴에 같은 조건의 다른 메뉴 2개를 더해 투표 화면(vote.html)으로 보내요. 후보는 투표 화면에서 바꿀 수 있어요.
+function pollLink(menu) {
+	const others = lastAllowed
+		.filter((item) => item.name !== menu.name)
+		.sort(() => Math.random() - 0.5)
+		.slice(0, 2)
+		.map((item) => item.name);
+	const link = document.createElement("a");
+	link.className = "text-button";
+	link.href = "vote.html?menus=" + encodeURIComponent([menu.name, ...others].join(","));
+	link.textContent = "친구랑 같이 정하기";
+	return link;
 }
 
 // 뺀 메뉴는 이 기기에만 기억해요. '다시 넣기'를 누르면 모두 돌아와요.
