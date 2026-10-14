@@ -21,8 +21,8 @@ jobs:
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v7
-      - name: osmium 설치
-        run: sudo apt-get update && sudo apt-get install -y osmium-tool
+      - name: osmium·xlrd 설치
+        run: sudo apt-get update && sudo apt-get install -y osmium-tool python3-xlrd
       - name: 식당 정보 가져오기
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

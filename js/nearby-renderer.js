@@ -14,6 +14,11 @@ export function restaurantCard(restaurant, origin) {
 	card.append(
 		paragraph("restaurant-label", "추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
 		paragraph("restaurant-name", restaurant.name),
+	);
+	if (restaurant.officialVisits) {
+		card.append(officialBadge(restaurant.officialVisits));
+	}
+	card.append(
 		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
 		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance)),
 	);
@@ -48,11 +53,24 @@ export function othersList(restaurants, title) {
 			tag.textContent = restaurant.menuName;
 			item.append(tag);
 		}
+		if (restaurant.officialVisits) {
+			item.append(officialBadge(restaurant.officialVisits));
+		}
 		item.append(time);
 		list.append(item);
 	}
 	wrapper.append(list);
 	return wrapper;
+}
+
+// 서울시청 업무추진비로 최근 2년 동안 결제한 횟수예요. 누르면 공무원 맛집 탭으로 가요.
+function officialBadge(visits) {
+	const badge = document.createElement("a");
+	badge.className = "official-badge";
+	badge.href = "official.html";
+	badge.textContent = "공무원 단골 · " + visits + "번";
+	badge.title = "서울시청 업무추진비로 최근 2년 동안 " + visits + "번 결제한 곳이에요";
+	return badge;
 }
 
 export function footer(menu, where) {

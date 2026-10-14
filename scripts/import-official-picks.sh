@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 서울시 본청 업무추진비(서울 열린데이터광장 odExpense)에서 최근 2년 식사 자리를 가게별로 모아 Supabase official_picks 표를 새로 채워요.
+# 서울시 본청(서울 열린데이터광장 odExpense)·은평구·서대문구·행정안전부 업무추진비에서 최근 2년 식사 자리를 가게별로 모아 Supabase official_picks 표를 새로 채워요.
+# 서대문구 엑셀(.xls)을 읽으려면 python 의 xlrd 가 필요해요. uv 가 있으면 uv 로 그때만 붙여 쓰고, 없으면 pip 로 깔아 둔 xlrd 를 써요.
 # 가게 좌표는 상가(상권)정보에서 찾아요. 같은 작업 안에서 import-sbiz-places.sh 가 받아 둔 파일이 있으면 그걸 써요.
 # 필요한 것: python3(3.11 이상), SEOUL_OPENAPI_KEY · SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY (.env.local 이나 환경 변수)
 # DRY_RUN=1 bash scripts/import-official-picks.sh 로 돌리면 결과만 세고 DB는 건드리지 않아요.
@@ -16,6 +17,11 @@ fi
 : "${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY 가 필요해요}"
 
 ZIP="${TMPDIR:-/tmp}/omechu-sbiz/sbiz.zip"
+if command -v uv >/dev/null 2>&1; then
+	PYTHON="uv run --quiet --with xlrd python3"
+else
+	PYTHON="python3"
+fi
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [ ! -s "$ZIP" ]; then
@@ -25,7 +31,7 @@ fi
 
 if [ "${DRY_RUN:-}" = "1" ]; then
 	echo "2/3 (시험) 업무추진비 받아 가게별로 모으기만 해요..."
-	python3 scripts/official_picks.py "$ZIP" "$STARTED_AT"
+	$PYTHON scripts/official_picks.py "$ZIP" "$STARTED_AT"
 	echo "시험이라 DB는 건드리지 않았어요."
 	exit 0
 fi
@@ -39,7 +45,7 @@ count_picks() {
 
 BEFORE="$(count_picks "")"
 echo "2/3 업무추진비 받아 가게별로 모아 올리는 중... (지금 ${BEFORE}곳)"
-python3 scripts/official_picks.py "$ZIP" "$STARTED_AT"
+$PYTHON scripts/official_picks.py "$ZIP" "$STARTED_AT"
 
 # 받은 데이터가 이상해서 새로 올린 곳이 절반도 안 되면, 멀쩡한 목록을 지우지 않도록 여기서 멈춰요.
 FRESH="$(count_picks "&imported_at=gte.$STARTED_AT")"

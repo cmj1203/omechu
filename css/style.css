@@ -530,6 +530,26 @@ a.text-button {
 	font-weight: 600;
 }
 
+/* 공무원 단골 배지: 추천 식당 상자 안과 다른 가까운 곳 목록에 붙어요 */
+#nearbyResult .official-badge {
+	display: inline-block;
+	margin: 0 0 6px;
+	padding: 2px 8px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-xs);
+	background: var(--canvas);
+	color: var(--ink);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1.6;
+	text-decoration: none;
+}
+
+#nearbyResult .others .official-badge {
+	margin: 0 0 0 6px;
+	font-size: 12px;
+}
+
 #nearbyResult .others span {
 	float: right;
 	color: var(--ash);
@@ -1160,6 +1180,19 @@ input[type="search"]::-webkit-search-cancel-button {
 
 .official-results {
 	padding: 20px;
+}
+
+.official-filter {
+	margin: 4px 0 0;
+}
+
+.official-filter legend {
+	margin-bottom: 6px;
+	font-size: 13px;
+}
+
+.official-order {
+	margin: 12px 0 0;
 }
 
 .official-results-heading {

@@ -39,6 +39,7 @@ export async function searchDatabase(origin, menus, similar, radius = SEARCH_RAD
 		phone: formatPhone(row.phone),
 		address: row.address ?? "",
 		matched: row.matched,
+		officialVisits: row.official_visits ?? 0,
 	}));
 }
 

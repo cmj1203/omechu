@@ -5,7 +5,7 @@ import { walkMinutes } from "./nearby-database.js";
 const DEFAULT_RADIUS_METERS = 1500;
 const WIDER_RADIUS_METERS = 3000;
 const QUERY_TIMEOUT_MS = 8000;
-const SOURCE_FIELDS = "name,address,category,lat,lng,visits,departments,avg_per_person,lunch_visits,dinner_visits,last_visit";
+const SOURCE_FIELDS = "name,address,category,lat,lng,visits,departments,avg_per_person,lunch_visits,dinner_visits,last_visit,agencies";
 
 const form = document.getElementById("officialSearch");
 const placeInput = document.getElementById("officialPlace");
@@ -15,7 +15,14 @@ const resetButton = document.getElementById("officialReset");
 const listTitle = document.getElementById("officialListTitle");
 const status = document.getElementById("officialStatus");
 const list = document.getElementById("officialList");
+const orderGroup = document.getElementById("officialOrder");
+const ORDER_TITLES = {
+	visits: "많이 간 곳 TOP 30",
+	lunch_visits: "점심에 많이 간 곳 TOP 30",
+	dinner_visits: "저녁에 많이 간 곳 TOP 30",
+};
 let requestId = 0;
+let lastOrigin = null;
 
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
@@ -23,19 +30,32 @@ form.addEventListener("submit", (event) => {
 });
 currentButton.addEventListener("click", () => searchNearby(true));
 resetButton.addEventListener("click", loadTopPicks);
+form.addEventListener("change", (event) => {
+	if (event.target.name === "price") {
+		reload();
+	}
+});
+orderGroup.addEventListener("change", loadTopPicks);
+orderGroup.querySelector('input[value="' + defaultOrder() + '"]').checked = true;
 
 await loadTopPicks();
 
 async function loadTopPicks() {
 	const id = ++requestId;
+	const order = selectedOrder();
+	lastOrigin = null;
 	setLoading("맛집 기록을 불러오고 있어요.", false);
-	listTitle.textContent = "많이 간 곳 TOP 30";
+	listTitle.textContent = ORDER_TITLES[order];
+	orderGroup.hidden = false;
 	resetButton.hidden = true;
 	try {
 		const supabase = await requiredSupabase();
-		const { data, error } = await supabase
-			.from("official_picks")
-			.select(SOURCE_FIELDS)
+		let query = supabase.from("official_picks").select(SOURCE_FIELDS);
+		if (maxPrice()) {
+			query = query.lte("avg_per_person", maxPrice());
+		}
+		const { data, error } = await query
+			.order(order, { ascending: false })
 			.order("visits", { ascending: false })
 			.limit(30)
 			.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -67,36 +87,86 @@ async function searchNearby(useCurrentPosition) {
 		if (id !== requestId) {
 			return;
 		}
-		let picks = await loadNearby(origin, DEFAULT_RADIUS_METERS);
+		await showNearby(origin, id);
+	} catch (error) {
+		showSearchError(id, error);
+	} finally {
+		unlockSearch(id);
+	}
+}
+
+// 가격 조건을 바꾸면 지금 보고 있는 목록(TOP 또는 마지막으로 찾은 곳 근처)을 다시 불러와요.
+async function reload() {
+	if (!lastOrigin) {
+		await loadTopPicks();
+		return;
+	}
+	const id = ++requestId;
+	setLoading(lastOrigin.label + " 근처를 다시 찾고 있어요.", true);
+	try {
+		await showNearby(lastOrigin, id);
+	} catch (error) {
+		showSearchError(id, error);
+	} finally {
+		unlockSearch(id);
+	}
+}
+
+async function showNearby(origin, id) {
+	let picks = await loadNearby(origin, DEFAULT_RADIUS_METERS);
+	if (id !== requestId) {
+		return;
+	}
+	let widened = false;
+	if (picks.length === 0) {
+		picks = await loadNearby(origin, WIDER_RADIUS_METERS);
 		if (id !== requestId) {
 			return;
 		}
-		let widened = false;
-		if (picks.length === 0) {
-			picks = await loadNearby(origin, WIDER_RADIUS_METERS);
-			if (id !== requestId) {
-				return;
-			}
-			widened = picks.length > 0;
-		}
-		listTitle.textContent = origin.label + " 근처";
-		resetButton.hidden = false;
-		renderPicks(picks, origin, widened);
-	} catch (error) {
-		if (id === requestId) {
-			console.error(error);
-			list.replaceChildren();
-			showStatus(error.message || "근처 맛집을 찾지 못했어요. 잠시 후 다시 눌러 주세요.", "error");
-			resetButton.hidden = false;
-		}
-	} finally {
-		if (id === requestId) {
-			searchButton.disabled = false;
-			searchButton.textContent = "근처 찾기";
-			currentButton.disabled = false;
-			currentButton.textContent = "현재 위치로 찾기";
-		}
+		widened = picks.length > 0;
 	}
+	lastOrigin = origin;
+	listTitle.textContent = origin.label + " 근처";
+	orderGroup.hidden = true;
+	resetButton.hidden = false;
+	renderPicks(picks, origin, widened);
+}
+
+function showSearchError(id, error) {
+	if (id === requestId) {
+		console.error(error);
+		list.replaceChildren();
+		showStatus(error.message || "근처 맛집을 찾지 못했어요. 잠시 후 다시 눌러 주세요.", "error");
+		resetButton.hidden = false;
+	}
+}
+
+function unlockSearch(id) {
+	if (id === requestId) {
+		searchButton.disabled = false;
+		searchButton.textContent = "근처 찾기";
+		currentButton.disabled = false;
+		currentButton.textContent = "현재 위치로 찾기";
+	}
+}
+
+function maxPrice() {
+	return Number(form.elements.price.value) || 0;
+}
+
+function selectedOrder() {
+	return orderGroup.querySelector("input:checked").value;
+}
+
+// 처음 순서는 지금 시각에 맞춰요: 오전 10시~오후 3시는 점심, 오후 4시~밤 11시는 저녁, 그 밖에는 전체 방문 순.
+function defaultOrder(hour = new Date().getHours()) {
+	if (hour >= 10 && hour < 15) {
+		return "lunch_visits";
+	}
+	if (hour >= 16 && hour < 23) {
+		return "dinner_visits";
+	}
+	return "visits";
 }
 
 async function loadNearby(origin, radius) {
@@ -106,6 +176,7 @@ async function loadNearby(origin, radius) {
 			p_lat: origin.lat,
 			p_lng: origin.lng,
 			p_radius: radius,
+			p_max_price: maxPrice() || null,
 		})
 		.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
 	if (error) {
@@ -125,9 +196,11 @@ async function requiredSupabase() {
 function renderPicks(picks, origin, widened = false) {
 	list.replaceChildren();
 	if (picks.length === 0) {
-		const message = origin
-			? "이 근처에는 기록된 곳이 없어요. 서울시청·광화문 근처에 많아요."
-			: "데이터를 준비하고 있어요.";
+		const message = maxPrice()
+			? "이 가격 안에서 기록된 곳이 없어요. 가격 조건을 넓혀 보세요."
+			: origin
+				? "이 근처에는 기록된 곳이 없어요. 서울시청·은평구·서대문구·세종청사 근처에 많아요."
+				: "데이터를 준비하고 있어요.";
 		showStatus(message, "empty");
 		return;
 	}
@@ -173,6 +246,9 @@ function pickItem(pick, rank, origin) {
 	}
 	if (pick.last_visit) {
 		facts.append(chip("최근 " + pick.last_visit));
+	}
+	if (pick.agencies) {
+		facts.append(chip(pick.agencies));
 	}
 	if (origin && Number.isFinite(Number(pick.distance))) {
 		const distance = Math.round(Number(pick.distance));

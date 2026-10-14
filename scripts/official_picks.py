@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""서울시 본청 업무추진비 집행내역에서 식사 자리를 가게별로 모아 Supabase official_picks 표를 채워요.
+"""서울시 본청·은평구·서대문구·행정안전부 업무추진비 집행내역에서 식사 자리를 가게별로 모아 Supabase official_picks 표를 채워요.
 import-official-picks.sh 가 실행해요.
 
 사용법: python3 scripts/official_picks.py <상가정보.zip> <가져오기 시작 시각(ISO)>
@@ -19,9 +19,12 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+import local_expenses
+
 API_PAGE = 1000
 RECENT_MONTHS = 24
 MIN_VISITS = 2
+AGENCY_ORDER = ["서울시 본청", "은평구", "서대문구", "행정안전부"]
 # 다과·간식 구입이 대부분이라 맛집에서 빼는 업종 (구내식당·유흥 주점도 빼요)
 SKIPPED_MIDDLE = {"비알코올", "구내식당·뷔페"}
 SKIPPED_SUB = {"빵/도넛", "떡/한과", "아이스크림/빙수", "일반 유흥 주점", "무도 유흥 주점"}
@@ -58,40 +61,42 @@ def fetch_expenses(key):
         start += API_PAGE
 
 
-def seoul_food_stores(zip_path):
-    """상가정보에서 서울 음식점을 주소(도로명·지번)와 구별 이름으로 찾을 수 있게 모아요."""
-    by_road, by_lot, by_name = collections.defaultdict(list), collections.defaultdict(list), collections.defaultdict(list)
+def food_stores(zip_path):
+    """상가정보에서 서울·세종 음식점을 주소(도로명·지번)와 구(시)별 이름으로 찾을 수 있게 모아요. 세종은 행정안전부 기록용이에요."""
+    by_road, by_lot, by_name, by_full = (collections.defaultdict(list) for _ in range(4))
     with zipfile.ZipFile(zip_path, metadata_encoding="cp949") as archive:
-        info = next(item for item in archive.infolist() if item.filename.endswith(".csv") and "_서울_" in item.filename)
-        rows = csv.reader(io.TextIOWrapper(archive.open(info), encoding="utf-8-sig"))
-        col = {name: index for index, name in enumerate(next(rows))}
-        for row in rows:
-            middle, sub = row[col["상권업종중분류명"]].strip(), row[col["상권업종소분류명"]].strip()
-            if row[col["상권업종대분류명"]].strip() != "음식" or middle in SKIPPED_MIDDLE or sub in SKIPPED_SUB:
-                continue
-            try:
-                lat, lng = float(row[col["위도"]]), float(row[col["경도"]])
-            except ValueError:
-                continue
-            gu = row[col["시군구명"]].strip()
-            road = row[col["도로명"]].split()[-1:]
-            number = address_number(row[col["건물본번지"]], row[col["건물부번지"]])
-            store = {
-                "place_key": "sb" + row[col["상가업소번호"]],
-                "name": " ".join(part for part in (row[col["상호명"]].strip(), row[col["지점명"]].strip()) if part),
-                "brand": normalized(row[col["상호명"]]),
-                "address": " ".join(road + [number]) if road else None,
-                "category": sub,
-                "lat": round(lat, 7),
-                "lng": round(lng, 7),
-            }
-            store["full"] = normalized(store["name"])
-            if road:
-                by_road[(gu, road[0], number)].append(store)
-            lot = address_number(row[col["지번본번지"]], row[col["지번부번지"]])
-            by_lot[(gu, row[col["법정동명"]].strip(), lot)].append(store)
-            by_name[(gu, store["brand"])].append(store)
-    return by_road, by_lot, by_name
+        infos = [item for item in archive.infolist() if item.filename.endswith(".csv") and ("_서울_" in item.filename or "_세종_" in item.filename)]
+        for info in infos:
+            rows = csv.reader(io.TextIOWrapper(archive.open(info), encoding="utf-8-sig"))
+            col = {name: index for index, name in enumerate(next(rows))}
+            for row in rows:
+                middle, sub = row[col["상권업종중분류명"]].strip(), row[col["상권업종소분류명"]].strip()
+                if row[col["상권업종대분류명"]].strip() != "음식" or middle in SKIPPED_MIDDLE or sub in SKIPPED_SUB:
+                    continue
+                try:
+                    lat, lng = float(row[col["위도"]]), float(row[col["경도"]])
+                except ValueError:
+                    continue
+                gu = row[col["시군구명"]].strip()
+                road = row[col["도로명"]].split()[-1:]
+                number = address_number(row[col["건물본번지"]], row[col["건물부번지"]])
+                store = {
+                    "place_key": "sb" + row[col["상가업소번호"]],
+                    "name": " ".join(part for part in (row[col["상호명"]].strip(), row[col["지점명"]].strip()) if part),
+                    "brand": normalized(row[col["상호명"]]),
+                    "address": " ".join(road + [number]) if road else None,
+                    "category": sub,
+                    "lat": round(lat, 7),
+                    "lng": round(lng, 7),
+                }
+                store["full"] = normalized(store["name"])
+                if road:
+                    by_road[(gu, road[0], number)].append(store)
+                lot = address_number(row[col["지번본번지"]], row[col["지번부번지"]])
+                by_lot[(gu, row[col["법정동명"]].strip(), lot)].append(store)
+                by_name[(gu, store["brand"])].append(store)
+                by_full[(gu, store["full"])].append(store)
+    return by_road, by_lot, by_name, by_full
 
 
 def same_name(key, store):
@@ -103,7 +108,7 @@ def same_name(key, store):
 
 def find_store(location, stores):
     """'잼배옥(중구 서소문동 64-4)' 같은 사용 장소를 상가정보 가게로 찾아요. 못 찾으면 None"""
-    by_road, by_lot, by_name = stores
+    by_road, by_lot, by_name, _ = stores
     match = re.match(r"^(.*)\s*\(([^()]*)\)\s*$", location.strip())
     if not match:
         return None
@@ -135,45 +140,104 @@ def people(target):
     return count if count > 0 else None
 
 
-def build_picks(expenses, stores, imported_at, today):
+def window_start(today):
     year, month_index = divmod(today.year * 12 + today.month - 1 - RECENT_MONTHS, 12)
-    since = datetime.date(year, month_index + 1, min(today.day, calendar.monthrange(year, month_index + 1)[1]))
-    counts = collections.Counter()
-    visits = {}
+    return datetime.date(year, month_index + 1, min(today.day, calendar.monthrange(year, month_index + 1)[1]))
+
+
+def seoul_records(expenses):
+    """서울시 본청 API 줄을 local_expenses.py 와 같은 모양의 기록으로 바꿔요. 사용 장소에 주소가 있어서 주소로 찾아요."""
+    records = []
     for row in expenses:
         try:
             when = datetime.datetime.strptime(row["EXEC_DT"].strip()[:16], "%Y-%m-%d %H:%M")
         except ValueError:
+            when = None
+        amount = str(row.get("EXEC_AMOUNT") or "").strip()
+        records.append({
+            "agency": "서울시 본청",
+            "when": when,
+            "has_time": True,
+            "name": None,
+            "location": row.get("EXEC_LOC") or "",
+            "gus": None,
+            "purpose": row.get("EXEC_PURPOSE") or "",
+            "meal": None,
+            "amount": int(amount) if amount.isdigit() else None,
+            "people": people(row.get("TARGET_NM")),
+            "dept": "서울시 본청 " + (row.get("DEPT_NM_FULL") or row.get("DEPT_NM") or ""),
+        })
+    return records
+
+
+def find_by_name(name, gus, stores):
+    """주소 없이 가게 이름만 있을 때, 정해진 지역(구·시) 안에서 하나로 정해지는 가게만 찾아요.
+    1) 이름 전체(상호+지점명)가 같은 가게 2) 마지막 낱말이 '○○점'이면 떼고 상호로 찾되,
+    지점명까지 같은 가게나 지점명 없는 가게가 하나뿐일 때만 이어요. 다른 지점이나 짧은 이름('황제보쌈'→'황제')에는 잇지 않아요."""
+    if "," in name:
+        return None
+    key = normalized(name)
+    if len(key) < 2:
+        return None
+    by_name, by_full = stores[2], stores[3]
+    exact = {store["place_key"]: store for gu in gus for store in by_full.get((gu, key), []) + by_name.get((gu, key), [])}
+    if exact:
+        return next(iter(exact.values())) if len(exact) == 1 else None
+    tokens = name.split()
+    if len(tokens) < 2 or not tokens[-1].endswith("점"):
+        return None
+    # 띄어쓰기로 나뉜 마지막 낱말이 '○○점'이면 지점명으로 보고 떼요. '풍년닭도리탕 신촌점'은 '풍년닭도리탕'으로만 찾아요.
+    brand = {store["place_key"]: store for gu in gus for store in by_name.get((gu, normalized(" ".join(tokens[:-1]))), [])}
+    same_branch = [store for store in brand.values() if store["full"] == key]
+    if len(same_branch) == 1:
+        return same_branch[0]
+    # 찾는 지역이 여러 곳(행정안전부: 세종·종로)이면 다른 동네 같은 상호일 수 있어서, 지점명까지 같을 때만 이어요.
+    no_branch = [store for store in brand.values() if store["full"] == store["brand"]]
+    return no_branch[0] if len(no_branch) == 1 and not same_branch and len(gus) == 1 else None
+
+
+def is_meal(record):
+    purpose = record["purpose"]
+    if re.search(r"다과|커피|음료|물품|상품권|기념품|성금|조의금|축의금|격려금", purpose):
+        return False
+    if record["meal"] is not None:
+        return record["meal"]
+    return bool(re.search(r"간담|오찬|만찬|식사|중식|석식|조식|급식|도시락", purpose))
+
+
+def build_picks(records, stores, imported_at, today):
+    since = window_start(today)
+    counts = collections.Counter()
+    visits = {}
+    for record in records:
+        when = record["when"]
+        if when is None:
             counts["날짜 없음"] += 1
             continue
         if not since <= when.date() <= today:
             counts["기간 밖"] += 1
             continue
-        purpose = row.get("EXEC_PURPOSE") or ""
-        if (
-            not re.search(r"간담|오찬|만찬|식사|중식|석식|조식|급식|도시락", purpose)
-            or re.search(r"다과|커피|음료|물품|상품권|기념품|성금|조의금|축의금|격려금", purpose)
-        ):
+        if not is_meal(record):
             counts["식사 목적 아님"] += 1
             continue
         counts["식사 대상"] += 1
-        store = find_store(row.get("EXEC_LOC") or "", stores)
+        if record["gus"] is None:
+            store = find_store(record["location"], stores)
+        else:
+            store = find_by_name(record["name"], record["gus"], stores)
         if store is None:
             counts["가게 못 찾음"] += 1
             continue
         counts["가게 찾음"] += 1
-        entry = visits.setdefault(store["place_key"], {"store": store, "rows": []})
-        entry["rows"].append((when, row))
+        counts[record["agency"] + " 가게 찾음"] += 1
+        visits.setdefault(store["place_key"], {"store": store, "records": []})["records"].append(record)
     picks = []
     for entry in visits.values():
-        rows = entry["rows"]
-        if len(rows) < MIN_VISITS:
+        found = entry["records"]
+        if len(found) < MIN_VISITS:
             continue
-        per_person = []
-        for _, row in rows:
-            amount, count = row.get("EXEC_AMOUNT"), people(row.get("TARGET_NM"))
-            if count and str(amount).strip().isdigit():
-                per_person.append(int(amount) / count)
+        per_person = [record["amount"] / record["people"] for record in found if record["amount"] and record["people"]]
+        timed = [record["when"] for record in found if record["has_time"]]
         store = entry["store"]
         picks.append({
             "place_key": store["place_key"],
@@ -182,12 +246,13 @@ def build_picks(expenses, stores, imported_at, today):
             "category": store["category"],
             "lat": store["lat"],
             "lng": store["lng"],
-            "visits": len(rows),
-            "departments": len({row.get("DEPT_NM_FULL") or row.get("DEPT_NM") for _, row in rows}),
+            "visits": len(found),
+            "departments": len({record["dept"] for record in found}),
             "avg_per_person": round(sum(per_person) / len(per_person)) if per_person else None,
-            "lunch_visits": sum(1 for when, _ in rows if 11 <= when.hour < 15),
-            "dinner_visits": sum(1 for when, _ in rows if when.hour >= 17),
-            "last_visit": max(when for when, _ in rows).date().isoformat(),
+            "lunch_visits": sum(1 for when in timed if 11 <= when.hour < 15),
+            "dinner_visits": sum(1 for when in timed if when.hour >= 17),
+            "last_visit": max(record["when"] for record in found).date().isoformat(),
+            "agencies": ", ".join(sorted({record["agency"] for record in found}, key=AGENCY_ORDER.index)),
             "imported_at": imported_at,
         })
     counts["맛집"] = len(picks)
@@ -217,9 +282,15 @@ def upload(picks):
 
 def main():
     zip_path, imported_at = sys.argv[1], sys.argv[2]
-    expenses = fetch_expenses(os.environ["SEOUL_OPENAPI_KEY"])
-    print(f"업무추진비 {len(expenses):,}건 받음", flush=True)
-    picks, counts = build_picks(expenses, seoul_food_stores(zip_path), imported_at, datetime.date.today())
+    today = datetime.date.today()
+    since = window_start(today)
+    records = seoul_records(fetch_expenses(os.environ["SEOUL_OPENAPI_KEY"]))
+    records += local_expenses.eunpyeong(since)
+    records += local_expenses.seodaemun(since, today)
+    records += local_expenses.mois(since)
+    by_agency = collections.Counter(record["agency"] for record in records)
+    print("업무추진비 받음: " + ", ".join(f"{agency} {by_agency[agency]:,}건" for agency in AGENCY_ORDER), flush=True)
+    picks, counts = build_picks(records, food_stores(zip_path), imported_at, today)
     print(", ".join(f"{label} {count:,}" for label, count in counts.items()), flush=True)
     if os.environ.get("DRY_RUN") == "1":
         for pick in sorted(picks, key=lambda item: -item["visits"])[:10]:

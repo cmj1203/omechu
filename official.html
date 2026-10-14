@@ -20,7 +20,11 @@
 		<header class="official-header">
 			<h1 class="headline">공무원 맛집</h1>
 			<p class="official-intro">
-				<a class="official-source-link" href="https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do" target="_blank" rel="noopener">데이터 출처: 서울시 업무추진비 집행내역&nbsp;↗</a>
+				데이터 출처: 업무추진비 집행내역 ·
+				<a class="official-source-link" href="https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do" target="_blank" rel="noopener">서울시 본청&nbsp;↗</a>
+				<a class="official-source-link" href="https://www.ep.go.kr/www/selectJobPrtnCtWebList.do?key=666" target="_blank" rel="noopener">은평구&nbsp;↗</a>
+				<a class="official-source-link" href="https://www.sdm.go.kr/admininfo/budget/openmoney.do" target="_blank" rel="noopener">서대문구&nbsp;↗</a>
+				<a class="official-source-link" href="https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardList.do?bbsId=BBSMSTR_000000000187" target="_blank" rel="noopener">행정안전부&nbsp;↗</a>
 			</p>
 		</header>
 
@@ -31,6 +35,15 @@
 				<button type="submit" id="officialSearchButton" class="official-search-button">근처 찾기</button>
 			</div>
 			<button type="button" id="officialCurrentButton" class="official-search-button">현재 위치로 찾기</button>
+			<fieldset class="choices official-filter">
+				<legend>1인 가격</legend>
+				<div class="options">
+					<label><input type="radio" name="price" value="" checked><span>전체</span></label>
+					<label><input type="radio" name="price" value="15000"><span>1.5만 원 이하</span></label>
+					<label><input type="radio" name="price" value="20000"><span>2만 원 이하</span></label>
+					<label><input type="radio" name="price" value="30000"><span>3만 원 이하</span></label>
+				</div>
+			</fieldset>
 		</form>
 
 		<section class="official-results" aria-labelledby="officialListTitle">
@@ -38,6 +51,14 @@
 				<h2 id="officialListTitle">많이 간 곳 TOP 30</h2>
 				<button type="button" id="officialReset" class="text-button" hidden>TOP 30 보기</button>
 			</div>
+			<fieldset id="officialOrder" class="choices official-filter official-order">
+				<legend>순서</legend>
+				<div class="options">
+					<label><input type="radio" name="order" value="visits" checked><span>많이 간 순</span></label>
+					<label><input type="radio" name="order" value="lunch_visits"><span>점심에 많이 간 순</span></label>
+					<label><input type="radio" name="order" value="dinner_visits"><span>저녁에 많이 간 순</span></label>
+				</div>
+			</fieldset>
 			<p id="officialStatus" class="official-status" aria-live="polite">맛집 기록을 불러오고 있어요.</p>
 			<ol id="officialList" class="official-list"></ol>
 		</section>
