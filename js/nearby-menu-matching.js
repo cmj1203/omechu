@@ -32,7 +32,7 @@ export function bestMenu(place, filterMenus, recommended) {
 			continue;
 		}
 		const name = nameForMenu(place, candidate);
-		if (!hasSearchTerm(name, candidate)) {
+		if (!hasMainTerm(name, candidate)) {
 			continue;
 		}
 		const score = (name.includes(candidate.name.toLowerCase()) ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
@@ -55,6 +55,25 @@ export function nameForMenu(place, menu) {
 export function hasSearchTerm(name, menu) {
 	return name.includes(menu.name.toLowerCase())
 		|| searchTerms(menu).some((term) => name.includes(term.toLowerCase()));
+}
+
+// 넓은 말(broad_terms)을 뺀 검색어로 찾아요. 이 말이 이름에 든 가게는 그 메뉴를 주력으로 판다고 봐요.
+export function hasMainTerm(name, menu) {
+	return name.includes(menu.name.toLowerCase())
+		|| mainTerms(menu).some((term) => name.includes(term.toLowerCase()));
+}
+
+export function mainTerms(menu) {
+	const broad = new Set(broadTerms(menu));
+	return searchTerms(menu).filter((term) => !broad.has(term.toLowerCase()));
+}
+
+export function broadTermIn(name, menu) {
+	return broadTerms(menu).find((term) => name.includes(term)) ?? null;
+}
+
+function broadTerms(menu) {
+	return (menu.broad_terms ?? []).map((term) => term.toLowerCase());
 }
 
 function fitsKind(menu, place) {

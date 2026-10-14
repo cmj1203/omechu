@@ -7,7 +7,7 @@ export const WIDER_RADIUS_METERS = 5000;
 const WALK_METERS_PER_MINUTE = 67;
 const STRAIGHT_TO_WALK_FACTOR = 1.3;
 
-export async function searchDatabase(origin, menus, similar, radius = SEARCH_RADIUS_METERS) {
+export async function searchDatabase(origin, menus, similar, radius = SEARCH_RADIUS_METERS, termsFor = searchTerms) {
 	const supabase = await getSupabase();
 	if (!supabase) {
 		throw new Error("Supabase 가 연결되지 않았어요.");
@@ -18,7 +18,7 @@ export async function searchDatabase(origin, menus, similar, radius = SEARCH_RAD
 			p_lat: origin.lat,
 			p_lng: origin.lng,
 			p_radius: radius,
-			p_terms: [...new Set(menus.flatMap(searchTerms))],
+			p_terms: [...new Set(menus.flatMap(termsFor))],
 			p_amenities: [...new Set(kinds.flatMap((kind) => AMENITIES_BY_KIND[kind]))],
 			p_shops: kinds.includes("간식") ? BAKERY_SHOPS : [],
 			p_similar_amenities: similar ? similar.amenities : [],

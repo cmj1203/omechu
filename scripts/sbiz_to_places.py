@@ -19,6 +19,9 @@ BATCH_SIZE = 2000
 SAME_PLACE_METERS = 150
 # 추천에 안 맞는 곳(회사 구내식당, 유흥 주점)은 빼요.
 SKIPPED_CATEGORIES = {("구내식당·뷔페", "구내식당"), ("주점", "일반 유흥 주점"), ("주점", "무도 유흥 주점")}
+# 음식 업종으로 올라온 어린이집·단체·투자조합도 빼요. '직장어린이집'의 '장어', '대한민국수호…'의 '국수'처럼 메뉴 검색어에 걸려서 식당처럼 나왔어요.
+# 협회·연합회·위원회는 이름이 그 말(또는 '…지부', '…지회' 같은 꼬리)로 끝날 때만 빼요. '수협회센터', '…한우협회고금녹색한우마을' 같은 가게는 남아요.
+SKIPPED_NAME = re.compile(r"어린이집|투자조합|신기술|노동조합|사주조합|합자조합|(협회|연합회|위원회)(.*(지부|지회|지회사|부녀회|봉사단|구조대사))?$")
 CUISINES = {"한식": "korean", "중식": "chinese", "일식": "japanese", "서양식": "western", "동남아시아": "asian"}
 # 소분류별 가게 종류(OpenStreetMap 의 amenity·shop·cuisine 과 같은 말로 맞춰서, 식당 검색이 그대로 쓰게 해요)
 SUBCATEGORIES = {
@@ -113,7 +116,7 @@ def read_places(zip_path, imported_at, pattern, cells, counts):
                 if row[col["상권업종대분류명"]].strip() != "음식" or (middle, sub) in SKIPPED_CATEGORIES:
                     continue
                 name = " ".join(part for part in (row[col["상호명"]].strip(), row[col["지점명"]].strip()) if part)
-                if not name or not pattern.search(name.lower()):
+                if not name or not pattern.search(name.lower()) or SKIPPED_NAME.search(name):
                     continue
                 try:
                     lat, lng = float(row[col["위도"]]), float(row[col["경도"]])
