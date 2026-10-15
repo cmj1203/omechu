@@ -300,13 +300,13 @@ placeSearch.addEventListener("submit", async (event) => {
 		.from("places")
 		.select("osm_id, name, address")
 		.ilike("name", "%" + query.replace(/[%_\\]/g, "\\$&") + "%")
-		.order("name")
 		.limit(PLACE_RESULT_LIMIT);
 	if (error) {
 		setMessage(hideMessage, "가게를 찾지 못했어요: " + error.message, true);
 		return;
 	}
-	lastPlaces = data;
+	// 식당이 72만 곳이라 '김밥'처럼 흔한 말은 DB에서 전부 정렬하면 시간 제한에 걸려서, 받은 결과만 여기서 정렬해요.
+	lastPlaces = data.sort((a, b) => a.name.localeCompare(b.name, "ko"));
 	setMessage(hideMessage, data.length === 0
 		? "그런 이름의 가게가 없어요."
 		: data.length === PLACE_RESULT_LIMIT ? PLACE_RESULT_LIMIT + "곳까지만 보여 줘요. 이름을 더 길게 적으면 좁혀져요." : "");
