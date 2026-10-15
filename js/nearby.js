@@ -1,6 +1,9 @@
 import { currentPosition, geocode, locationAlreadyAllowed } from "./nearby-location.js";
 import { footer, othersList, paragraph, restaurantCard, similarLabel } from "./nearby-renderer.js";
 import { listRestaurants, searchRestaurants } from "./nearby-restaurant-search.js";
+import { initPlacePicker } from "./place-picker.js";
+
+let picker = null;
 
 // 가게 목록에는 메뉴가 하나로 정해져 있지 않아서, '구글 지도에서 더 찾기'는 '맛집'으로 찾아요.
 const LIST_TARGET = { name: "맛집" };
@@ -14,11 +17,29 @@ export function initNearby(section) {
 	let filterMenus = [];
 	let listMode = false;
 	let searchId = 0;
+	let pickedOrigin = null;
+	picker ??= initPlacePicker(document.querySelector("#placePicker"));
 
-	button.addEventListener("click", () => findRestaurants(false));
+	button.addEventListener("click", () => {
+		if (placeInput.readOnly && !placeInput.value.trim()) {
+			choosePlace();
+			return;
+		}
+		findRestaurants(false);
+	});
 	currentButton.addEventListener("click", () => findRestaurants(true));
+	placeInput.addEventListener("click", () => {
+		if (placeInput.readOnly && !button.disabled) {
+			choosePlace();
+		}
+	});
 	placeInput.addEventListener("keydown", (event) => {
-		if (event.key === "Enter" && !button.disabled) {
+		if (event.key !== "Enter" || button.disabled) {
+			return;
+		}
+		if (placeInput.readOnly) {
+			choosePlace();
+		} else {
 			findRestaurants(false);
 		}
 	});
@@ -58,6 +79,19 @@ export function initNearby(section) {
 		}
 	}
 
+	// 카카오 장소 검색 창에서 고른 곳으로 찾아요. 카카오를 못 불러오면 위치 칸에 직접 적는 방식으로 돌아가요.
+	async function choosePlace() {
+		const chosen = await picker.open(placeInput.value.trim());
+		if (chosen) {
+			pickedOrigin = chosen;
+			placeInput.value = chosen.label;
+			findRestaurants(false);
+		} else if (picker.failed) {
+			placeInput.readOnly = false;
+			placeInput.focus();
+		}
+	}
+
 	async function findRestaurants(useCurrentPosition) {
 		const place = useCurrentPosition ? "" : placeInput.value.trim();
 		if (!useCurrentPosition && !place) {
@@ -65,13 +99,14 @@ export function initNearby(section) {
 			placeInput.focus();
 			return;
 		}
+		const picked = pickedOrigin?.label === place ? pickedOrigin : null;
 		const id = ++searchId;
 		const target = menu;
 		const pool = filterMenus;
 		const asList = listMode;
 		try {
 			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
-			const origin = useCurrentPosition ? await currentPosition() : await geocode(place);
+			const origin = useCurrentPosition ? await currentPosition() : picked ?? await geocode(place);
 			// 위치를 기다리는 사이 새 검색이 시작됐으면 여기서 멈춰요. 계속 가면 새 검색 버튼을 '식당 찾는 중…'으로 다시 잠가요.
 			if (id !== searchId) {
 				return;

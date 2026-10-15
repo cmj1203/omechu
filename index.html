@@ -48,7 +48,7 @@
 			</div>
 			<div id="nearby" class="nearby" hidden>
 				<div class="nearby-form">
-					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="동네·역 이름 (예: 강남역)">
+					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="동네·역 이름 (예: 강남역)" readonly>
 					<button type="button" id="nearbyBtn" class="nearby-search-button">주변 맛집 찾기</button>
 				</div>
 				<button type="button" id="nearbyCurrentBtn" class="nearby-search-button">현재 위치로 찾기</button>
@@ -62,5 +62,17 @@
 		</div>
 		<p id="dataNote" class="note" hidden></p>
 	</main>
+	<dialog id="placePicker" class="place-picker" aria-label="위치 찾기">
+		<div class="place-picker-head">
+			<form class="place-picker-form" role="search">
+				<input type="search" name="q" aria-label="위치 검색" placeholder="역·동네·건물 이름" enterkeyhint="search" autocomplete="off">
+				<button type="submit">검색</button>
+			</form>
+			<button type="button" class="place-picker-close">닫기</button>
+		</div>
+		<div class="place-picker-map" hidden></div>
+		<p class="place-picker-message" hidden></p>
+		<ol class="place-picker-results"></ol>
+	</dialog>
 </body>
 </html>
