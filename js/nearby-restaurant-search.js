@@ -1,5 +1,5 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
-import { bestMenu, broadTermIn, hasMainTerm, hasSearchTerm, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
+import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, mainCategories, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
@@ -15,7 +15,7 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	try {
 		[forMenu, forFilters] = await Promise.all([
 			searchDatabase(origin, [menu], similarFor(menu)),
-			searchDatabase(origin, filterMenus, null, SEARCH_RADIUS_METERS, mainTerms),
+			searchDatabase(origin, filterMenus, null, SEARCH_RADIUS_METERS, mainTerms, mainCategories),
 		]);
 	} catch (error) {
 		console.warn("식당 DB에서 찾지 못해서 OpenStreetMap 공개 서버로 찾아요.", error);
@@ -31,7 +31,7 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	try {
 		const [widerMenu, widerFilters] = await Promise.all([
 			searchDatabase(origin, [menu], null, WIDER_RADIUS_METERS),
-			searchDatabase(origin, filterMenus, null, WIDER_RADIUS_METERS, mainTerms),
+			searchDatabase(origin, filterMenus, null, WIDER_RADIUS_METERS, mainTerms, mainCategories),
 		]);
 		const wider = choose(menu, filterMenus, widerMenu, widerFilters);
 		if (wider.mode === "menu" || wider.mode === "broad" || wider.mode === "filter") {
@@ -49,7 +49,7 @@ export async function listRestaurants(filterMenus, origin) {
 	for (const radius of [SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS]) {
 		let found;
 		try {
-			found = await searchDatabase(origin, filterMenus, null, radius, mainTerms);
+			found = await searchDatabase(origin, filterMenus, null, radius, mainTerms, mainCategories);
 		} catch (error) {
 			throw new Error("가게 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요.", { cause: error });
 		}
@@ -68,18 +68,23 @@ function choose(menu, filterMenus, forMenu, forFilters) {
 	const suitable = withoutDuplicates(forFilters
 		.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, menu)?.name }))
 		.filter((place) => place.menuName));
-	// 이름에 메뉴 검색어가 든 가게 중, 주력 검색어(넓은 말 말고)가 든 곳을 먼저 골라요.
-	// 넓은 말만 든 곳(김치찌개의 '찌개'집 등)은 주력 가게가 없을 때만 골라요.
+	// 이름에 메뉴 검색어가 들었거나 업종이 맞는 가게 중, 주력(주력 검색어·주력 업종)인 곳을 먼저 골라요.
+	// 넓은 말·넓은 업종만 맞는 곳(김치찌개의 '찌개'집, 국/탕/찌개류 가게 등)은 주력 가게가 없을 때만 골라요.
 	const named = forMenu
-		.filter((place) => place.matched && hasSearchTerm(nameForMenu(place, menu), menu))
+		.filter((place) => place.matched && isMenuPlace(place, menu))
 		.map((place) => ({ ...place, menuName: menu.name }));
-	const exact = withoutDuplicates(named.filter((place) => hasMainTerm(nameForMenu(place, menu), menu)));
-	const broad = withoutDuplicates(named.filter((place) => !hasMainTerm(nameForMenu(place, menu), menu)));
+	// 업종은 상가정보에 잘못 올라 있기도 해서(피자 업종의 샐러드 가게 등), 이름으로 맞는 주력 가게를 먼저 쓰고 업종으로만 맞는 가게는 그 뒤에 둬요.
+	const mainByName = withoutDuplicates(named.filter((place) => hasMainTerm(nameForMenu(place, menu), menu)));
+	const mainByCategory = withoutDuplicates(named.filter((place) => !hasMainTerm(nameForMenu(place, menu), menu) && isMainPlace(place, menu)));
+	const exact = [...mainByName, ...mainByCategory];
+	const broad = withoutDuplicates(named.filter((place) => !isMainPlace(place, menu)));
 	if (exact.length > 0) {
-		const pick = pickNear(exact);
+		const pick = pickNear(mainByName.length > 0 ? mainByName : mainByCategory);
 		// 다른 가까운 곳도 같은 메뉴를 파는 가게로 보여 줘요. 같은 메뉴 가게가 이 한 곳뿐이면 조건에 맞는 다른 메뉴 가게를 보여 줘요.
 		// 같은 메뉴 목록에서는 메뉴 이름 표시가 되풀이되니 빼요.
-		const sameMenu = othersExcept(exact, pick).map(({ menuName, ...place }) => place);
+		const sameMenu = [...othersExcept(mainByName, pick), ...othersExcept(mainByCategory, pick)]
+			.slice(0, MAX_OTHERS)
+			.map(({ menuName, ...place }) => place);
 		if (sameMenu.length > 0) {
 			return { mode: "menu", pick, others: sameMenu, othersSameMenu: true };
 		}
@@ -93,9 +98,10 @@ function choose(menu, filterMenus, forMenu, forFilters) {
 		const pick = pickNear(broad);
 		const others = othersExcept(broad, pick).map(({ menuName, ...place }) => place);
 		const broadTerm = broadTermIn(nameForMenu(pick, menu), menu);
+		const broadCategory = broadTerm ? null : categoryLabel(pick.category);
 		return others.length > 0
-			? { mode: "broad", pick, broadTerm, others }
-			: { mode: "broad", pick, broadTerm, others: othersExcept(suitable, pick) };
+			? { mode: "broad", pick, broadTerm, broadCategory, others }
+			: { mode: "broad", pick, broadTerm, broadCategory, others: othersExcept(suitable, pick) };
 	}
 	if (suitable.length > 0) {
 		const pick = pickNear(suitable);

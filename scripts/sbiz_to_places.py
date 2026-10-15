@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -51,15 +52,17 @@ def request(method, path, body=None, headers=None):
 
 
 def menu_pattern():
-    menus = json.loads(request("GET", "/rest/v1/menus?select=name,search_terms"))
-    terms = set()
+    """메뉴 검색어 정규식과, 메뉴에 이어 둔 업종('중분류/소분류') 모음을 돌려줘요."""
+    menus = json.loads(request("GET", "/rest/v1/menus?select=name,search_terms,categories,broad_categories"))
+    terms, categories = set(), set()
     for menu in menus:
+        categories.update(menu["categories"] + menu["broad_categories"])
         for term in menu["search_terms"] or [menu["name"]]:
             # 식당 검색(searchTerms)과 똑같이 특수문자를 지워요.
             term = re.sub(r'[\\^$.|?*+()\[\]{}"%_]', "", term).strip().lower()
             if term:
                 terms.add(term)
-    return re.compile("|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True)))
+    return re.compile("|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True))), categories
 
 
 def normalized(name):
@@ -68,14 +71,16 @@ def normalized(name):
 
 def osm_places_by_cell():
     """OpenStreetMap 가게를 0.01도(약 1km) 칸별로 모아요. 같은 가게를 두 번 올리지 않으려고 써요."""
-    cells, offset = {}, 0
+    # offset 으로 넘기면 뒤로 갈수록 느려져 DB 시간 제한에 걸려서, 마지막으로 읽은 osm_id 다음부터 읽어요.
+    cells, last_id = {}, ""
     while True:
-        rows = json.loads(request("GET", f"/rest/v1/places?select=name,lat,lng&source=eq.osm&order=osm_id&limit=1000&offset={offset}"))
+        after = "&osm_id=gt." + urllib.parse.quote(last_id) if last_id else ""
+        rows = json.loads(request("GET", f"/rest/v1/places?select=osm_id,name,lat,lng&source=eq.osm&order=osm_id&limit=1000{after}"))
         for row in rows:
             cells.setdefault((int(row["lat"] * 100), int(row["lng"] * 100)), []).append((normalized(row["name"]), row["lat"], row["lng"]))
         if len(rows) < 1000:
             return cells
-        offset += 1000
+        last_id = rows[-1]["osm_id"]
 
 
 def meters(lat1, lng1, lat2, lng2):
@@ -104,7 +109,7 @@ def kind(middle, sub):
     return "restaurant", None, CUISINES.get(middle)
 
 
-def read_places(zip_path, imported_at, pattern, cells, counts):
+def read_places(zip_path, imported_at, pattern, menu_categories, cells, counts):
     with zipfile.ZipFile(zip_path, metadata_encoding="cp949") as archive:
         for info in archive.infolist():
             if not info.filename.endswith(".csv"):
@@ -116,7 +121,9 @@ def read_places(zip_path, imported_at, pattern, cells, counts):
                 if row[col["상권업종대분류명"]].strip() != "음식" or (middle, sub) in SKIPPED_CATEGORIES:
                     continue
                 name = " ".join(part for part in (row[col["상호명"]].strip(), row[col["지점명"]].strip()) if part)
-                if not name or not pattern.search(name.lower()) or SKIPPED_NAME.search(name):
+                category = middle + "/" + sub
+                # 이름에 메뉴 글자가 있거나, 업종이 메뉴에 이어져 있으면(치킨, 중국집 등) 넣어요.
+                if not name or SKIPPED_NAME.search(name) or not (pattern.search(name.lower()) or category in menu_categories):
                     continue
                 try:
                     lat, lng = float(row[col["위도"]]), float(row[col["경도"]])
@@ -142,15 +149,16 @@ def read_places(zip_path, imported_at, pattern, cells, counts):
                     "lng": round(lng, 7),
                     "imported_at": imported_at,
                     "source": "sbiz",
+                    "category": category,
                 }
 
 
 def main():
     zip_path, imported_at = sys.argv[1], sys.argv[2]
-    pattern = menu_pattern()
+    pattern, menu_categories = menu_pattern()
     cells = osm_places_by_cell()
     counts = {"올림": 0, "OpenStreetMap 에 있음": 0, "좌표 없음": 0}
-    places = read_places(zip_path, imported_at, pattern, cells, counts)
+    places = read_places(zip_path, imported_at, pattern, menu_categories, cells, counts)
     if os.environ.get("DRY_RUN") == "1":
         for _ in places:
             pass

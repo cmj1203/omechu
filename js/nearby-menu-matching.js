@@ -40,11 +40,13 @@ export function bestMenu(place, filterMenus, recommended) {
 		if (!fitsKind(candidate, place)) {
 			continue;
 		}
-		const name = nameForMenu(place, candidate);
-		if (!hasMainTerm(name, candidate)) {
+		if (!isMainPlace(place, candidate)) {
 			continue;
 		}
-		const score = (name.includes(candidate.name.toLowerCase()) ? 2 : 1) + (candidate === recommended ? 0.5 : 0);
+		const name = nameForMenu(place, candidate);
+		// 이름에 메뉴 이름이 그대로 있으면 2, 다른 검색어면 1, 업종으로만 맞으면 0.5 (이름으로 맞는 메뉴를 먼저 붙여요)
+		const byName = name.includes(candidate.name.toLowerCase()) ? 2 : hasMainTerm(name, candidate) ? 1 : 0.5;
+		const score = byName + (candidate === recommended ? 0.25 : 0);
 		if (score > bestScore) {
 			best = candidate;
 			bestScore = score;
@@ -79,6 +81,34 @@ export function mainTerms(menu) {
 
 export function broadTermIn(name, menu) {
 	return broadTerms(menu).find((term) => name.includes(term)) ?? null;
+}
+
+// 상가정보 업종('중분류/소분류')으로도 메뉴 가게를 알아봐요. 이름에 메뉴 글자가 없는 'BHC' 같은 가게도 업종이 '치킨'이면 치킨 가게예요.
+// categories 는 그 메뉴가 주력인 업종(치킨, 중국집), broad_categories 는 넓은 업종(국/탕/찌개류, 분식)이에요.
+// 이름에 제외어가 든 가게(김치찌개의 '부대찌개'집)는 업종으로도 잡지 않아요.
+export function isMainPlace(place, menu) {
+	const name = nameForMenu(place, menu);
+	return hasMainTerm(name, menu)
+		|| (name === place.name.toLowerCase() && (menu.categories ?? []).includes(place.category));
+}
+
+export function isMenuPlace(place, menu) {
+	const name = nameForMenu(place, menu);
+	return hasSearchTerm(name, menu)
+		|| (name === place.name.toLowerCase() && menuCategories([menu]).includes(place.category));
+}
+
+export function mainCategories(menus) {
+	return [...new Set(menus.flatMap((menu) => menu.categories ?? []))];
+}
+
+export function menuCategories(menus) {
+	return [...new Set(menus.flatMap((menu) => [...(menu.categories ?? []), ...(menu.broad_categories ?? [])]))];
+}
+
+// '한식/국/탕/찌개류' → '국/탕/찌개류'
+export function categoryLabel(category) {
+	return category ? category.split("/").slice(1).join("/") : null;
 }
 
 function broadTerms(menu) {

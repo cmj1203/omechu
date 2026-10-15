@@ -1,5 +1,5 @@
 import { getSupabase } from "./supabase.js";
-import { amenitiesFor, searchTerms, shopsFor } from "./nearby-menu-matching.js";
+import { amenitiesFor, menuCategories, searchTerms, shopsFor } from "./nearby-menu-matching.js";
 
 export const SEARCH_RADIUS_METERS = 2000;
 export const WIDER_RADIUS_METERS = 5000;
@@ -7,7 +7,7 @@ export const WIDER_RADIUS_METERS = 5000;
 const WALK_METERS_PER_MINUTE = 67;
 const STRAIGHT_TO_WALK_FACTOR = 1.3;
 
-export async function searchDatabase(origin, menus, similar, radius = SEARCH_RADIUS_METERS, termsFor = searchTerms) {
+export async function searchDatabase(origin, menus, similar, radius = SEARCH_RADIUS_METERS, termsFor = searchTerms, categoriesOf = menuCategories) {
 	const supabase = await getSupabase();
 	if (!supabase) {
 		throw new Error("Supabase 가 연결되지 않았어요.");
@@ -22,6 +22,7 @@ export async function searchDatabase(origin, menus, similar, radius = SEARCH_RAD
 			p_shops: shopsFor(menus),
 			p_similar_amenities: similar ? similar.amenities : [],
 			p_similar_cuisine: similar ? similar.cuisine : null,
+			p_categories: categoriesOf(menus),
 		})
 		.abortSignal(AbortSignal.timeout(8000));
 	if (error) {
@@ -39,6 +40,7 @@ export async function searchDatabase(origin, menus, similar, radius = SEARCH_RAD
 		address: row.address ?? "",
 		matched: row.matched,
 		officialVisits: row.official_visits ?? 0,
+		category: row.category,
 	}));
 }
 

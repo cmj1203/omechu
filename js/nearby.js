@@ -138,7 +138,10 @@ export function initNearby(section) {
 		if (found.mode === "filter") {
 			nodes.push(paragraph("nearby-note", "'" + target.name + "' 파는 곳은 못 찾아서, 같은\u00a0조건의 '" + found.pick.menuName + "' 가게를 골랐어요."));
 		} else if (found.mode === "broad") {
-			nodes.push(paragraph("nearby-note", "'" + target.name + "'" + subjectParticle(target.name) + " 주력인 가게는 못 찾아서, 이름에 '" + found.broadTerm + "'" + subjectParticle(found.broadTerm) + " 들어간\u00a0가게를 골랐어요."));
+			const chosen = found.broadTerm
+				? "이름에 '" + found.broadTerm + "'" + subjectParticle(found.broadTerm) + " 들어간\u00a0가게를"
+				: "'" + found.broadCategory + "'\u00a0가게를";
+			nodes.push(paragraph("nearby-note", "'" + target.name + "'" + subjectParticle(target.name) + " 주력인 가게는 못 찾아서, " + chosen + " 골랐어요."));
 		} else if (found.mode === "similar") {
 			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}

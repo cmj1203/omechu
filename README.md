@@ -171,6 +171,9 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 | `cuisine` | text | 나라: 한식 · 중식 · 일식 · 양식 · 아시아 |
 | `search_terms` | text[] | 식당을 찾을 검색어 (예: 짜장면 → 짜장, 반점, 중화). 비우면 메뉴 이름으로 찾아요 |
 | `exclude_terms` | text[] | 제외어: 가게 이름에서 이 말 속에 든 검색어는 안 쳐요 (예: 커리 메뉴에서 '아우어베이커리') |
+| `broad_terms` | text[] | 넓은 말: 이 말만 이름에 든 가게는 주력 가게가 없을 때만 골라요 (예: 김치찌개의 '찌개') |
+| `categories` | text[] | 이 메뉴가 주력인 상가정보 업종 '중분류/소분류' (예: 치킨의 '기타 간이/치킨') |
+| `broad_categories` | text[] | 넓은 업종: 주력 가게가 없을 때만 골라요 (예: 김치찌개의 '한식/국/탕/찌개류') |
 
 **`places` (식당)**
 
@@ -178,6 +181,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 |------|------|------|
 | `osm_id` | text | OpenStreetMap 번호 (상가정보 가게는 `sb` + 상가업소번호) |
 | `source` | text | 어디서 가져왔는지: `osm` (OpenStreetMap) · `sbiz` (상가정보) |
+| `category` | text | 상가정보 업종 '중분류/소분류' (상가정보 가게만) |
 | `name` | text | 가게 이름 |
 | `amenity` / `shop` | text | 가게 종류 (restaurant, cafe, bar, bakery 등) |
 | `cuisine` | text | 음식 종류 (있을 때만) |
@@ -270,7 +274,7 @@ DRY_RUN=1 ./scripts/import-sbiz-places.sh  # 시험: 올릴 가게 수만 세기
 ```
 
 - OpenStreetMap: 식당 · 카페 · 술집 · 빵집만 골라 `places` 표를 새로 채워요.
-- 상가정보: 메뉴 검색어에 걸리는 음식점만 골라 더해요. 구내식당 · 유흥 주점은 빼고, OpenStreetMap에 같은 가게(150m 안의 같은 이름)가 있으면 올리지 않아요.
+- 상가정보: 메뉴 검색어에 걸리거나, 업종이 메뉴에 이어져 있는(치킨 · 중국집 등) 음식점만 골라 더해요. 구내식당 · 유흥 주점은 빼고, OpenStreetMap에 같은 가게(150m 안의 같은 이름)가 있으면 올리지 않아요.
 - 두 출처는 `places.source`로 나눠서, 각 스크립트는 자기 출처의 오래된 가게만 지워요.
 
 </details>
