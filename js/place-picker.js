@@ -98,9 +98,12 @@ export function initPlacePicker(dialog) {
 			}
 			clearPins();
 			mapBox.hidden = true;
-			showMessage(status === kakao.maps.services.Status.ZERO_RESULT
-				? "'" + query + "' 검색 결과가 없어요. 다른 이름으로 찾아 보세요."
-				: "위치를 찾지 못했어요. 잠시 후 다시 찾아 주세요.");
+			if (status === kakao.maps.services.Status.ZERO_RESULT) {
+				showMessage("'" + query + "' 검색 결과가 없어요. 다른 이름으로 찾아 보세요.");
+				return;
+			}
+			failed = true;
+			showMessage("카카오 장소 검색이 안 돼요. 창을 닫고 위치 칸에 직접 적어 주세요.");
 		});
 	}
 
