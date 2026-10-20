@@ -39,6 +39,7 @@ export function initPlacePicker(dialog) {
 	});
 	dialog.querySelector(".place-picker-close").addEventListener("click", () => dialog.close());
 	dialog.addEventListener("close", () => {
+		searchId++;
 		const done = resolvePick;
 		resolvePick = null;
 		done?.(picked);
@@ -92,6 +93,7 @@ export function initPlacePicker(dialog) {
 			if (id !== searchId) {
 				return;
 			}
+			failed = false;
 			if (status === kakao.maps.services.Status.OK) {
 				showResults(kakao, places);
 				return;
