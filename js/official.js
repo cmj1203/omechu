@@ -23,6 +23,7 @@ const ORDER_TITLES = {
 };
 let requestId = 0;
 let lastOrigin = null;
+let originLookup = null;
 
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
@@ -44,6 +45,7 @@ async function loadTopPicks() {
 	const id = ++requestId;
 	const order = selectedOrder();
 	lastOrigin = null;
+	originLookup = null;
 	setLoading("맛집 기록을 불러오고 있어요.", false);
 	listTitle.textContent = ORDER_TITLES[order];
 	orderGroup.hidden = false;
@@ -83,10 +85,13 @@ async function searchNearby(useCurrentPosition) {
 	const id = ++requestId;
 	setLoading(useCurrentPosition ? "현재 위치를 확인하고 있어요." : place + " 근처를 찾고 있어요.", true, useCurrentPosition);
 	try {
-		const origin = useCurrentPosition ? await currentPosition() : await geocode(place);
+		lastOrigin = null;
+		originLookup = useCurrentPosition ? currentPosition() : geocode(place);
+		const origin = await originLookup;
 		if (id !== requestId) {
 			return;
 		}
+		lastOrigin = origin;
 		await showNearby(origin, id);
 	} catch (error) {
 		showSearchError(id, error);
@@ -97,14 +102,19 @@ async function searchNearby(useCurrentPosition) {
 
 // 가격 조건을 바꾸면 지금 보고 있는 목록(TOP 또는 마지막으로 찾은 곳 근처)을 다시 불러와요.
 async function reload() {
-	if (!lastOrigin) {
+	if (!originLookup) {
 		await loadTopPicks();
 		return;
 	}
 	const id = ++requestId;
-	setLoading(lastOrigin.label + " 근처를 다시 찾고 있어요.", true);
+	setLoading((lastOrigin?.label || placeInput.value.trim() || "현재 위치") + " 근처를 다시 찾고 있어요.", true);
 	try {
-		await showNearby(lastOrigin, id);
+		const origin = await originLookup;
+		if (id !== requestId) {
+			return;
+		}
+		lastOrigin = origin;
+		await showNearby(origin, id);
 	} catch (error) {
 		showSearchError(id, error);
 	} finally {

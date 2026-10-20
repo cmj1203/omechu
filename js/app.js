@@ -11,7 +11,14 @@ const nearby = initNearby(document.getElementById("nearby"));
 
 // 간식·술은 나라 구분 없이 추천해서, 고르면 나라를 '전체'로 고정하고 다른 나라는 못 고르게 해요
 lockCuisine();
-form.addEventListener("change", lockCuisine);
+form.addEventListener("change", () => {
+	lockCuisine();
+	if (resultMode === "menu") {
+		recommendMenu();
+	} else if (resultMode === "list") {
+		showStoreList();
+	}
+});
 // 뒤로 가기로 돌아오면 브라우저가 고른 값을 나중에 되살려서, 그때 한 번 더 맞춰요
 window.addEventListener("pageshow", lockCuisine);
 
@@ -20,6 +27,7 @@ const SKIPPED_KEY = "omechu.skippedMenus";
 
 let menus = [];
 let current = null;
+let resultMode = null;
 let lastAllowed = [];
 let recent = [];
 let skipped = readSkipped();
@@ -43,6 +51,13 @@ try {
 
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
+	recommendMenu();
+});
+
+storeListButton.addEventListener("click", showStoreList);
+
+function recommendMenu() {
+	resultMode = "menu";
 	const allowed = allowedMenus(true);
 	if (!allowed) {
 		return;
@@ -61,10 +76,11 @@ form.addEventListener("submit", (event) => {
 	showMenu(current);
 	nearby.show(current, allowed);
 	recommendButton.textContent = "다시 추천받기";
-});
+}
 
 // 고른 조건(뺀 메뉴 제외)에 맞는 메뉴를 파는 가게를 가까운 순으로 보여 줘요.
-storeListButton.addEventListener("click", () => {
+function showStoreList() {
+	resultMode = "list";
 	const allowed = allowedMenus(false);
 	if (!allowed) {
 		return;
@@ -76,7 +92,7 @@ storeListButton.addEventListener("click", () => {
 		paragraph("menu-tags", ([filters.kind, filters.cuisine].filter((value) => value !== "전체").join(" | ") || "전체") + " · 메뉴 " + allowed.length + "개"),
 	);
 	nearby.showList(allowed);
-});
+}
 
 // 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.
 function allowedMenus(recommendAgain) {

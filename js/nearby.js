@@ -18,6 +18,7 @@ export function initNearby(section) {
 	let listMode = false;
 	let searchId = 0;
 	let pickedOrigin = null;
+	let originLookup = null;
 	picker ??= initPlacePicker(document.querySelector("#placePicker"));
 
 	button.addEventListener("click", () => {
@@ -72,7 +73,9 @@ export function initNearby(section) {
 		currentButton.textContent = "현재 위치로 찾기";
 		result.replaceChildren();
 		section.hidden = false;
-		if (placeInput.value.trim()) {
+		if (originLookup) {
+			findRestaurants(false, true);
+		} else if (placeInput.value.trim()) {
 			findRestaurants(false);
 		} else if (await locationAlreadyAllowed() && id === searchId) {
 			findRestaurants(true);
@@ -92,9 +95,9 @@ export function initNearby(section) {
 		}
 	}
 
-	async function findRestaurants(useCurrentPosition) {
+	async function findRestaurants(useCurrentPosition, reuseOrigin = false) {
 		const place = useCurrentPosition ? "" : placeInput.value.trim();
-		if (!useCurrentPosition && !place) {
+		if (!reuseOrigin && !useCurrentPosition && !place) {
 			showMessage("동네나 역 이름을 입력해 주세요.", menu, "");
 			placeInput.focus();
 			return;
@@ -104,9 +107,13 @@ export function initNearby(section) {
 		const target = menu;
 		const pool = filterMenus;
 		const asList = listMode;
+		let origin = null;
 		try {
 			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
-			const origin = useCurrentPosition ? await currentPosition() : picked ?? await geocode(place);
+			if (!reuseOrigin) {
+				originLookup = useCurrentPosition ? currentPosition() : picked ? Promise.resolve(picked) : geocode(place);
+			}
+			origin = await originLookup;
 			// 위치를 기다리는 사이 새 검색이 시작됐으면 여기서 멈춰요. 계속 가면 새 검색 버튼을 '식당 찾는 중…'으로 다시 잠가요.
 			if (id !== searchId) {
 				return;
@@ -125,6 +132,9 @@ export function initNearby(section) {
 			}
 		} catch (error) {
 			if (id === searchId) {
+				if (!origin) {
+					originLookup = null;
+				}
 				showMessage(error.message, target, place);
 			}
 		} finally {
