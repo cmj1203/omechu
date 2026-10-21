@@ -21,12 +21,21 @@ const hiddenList = document.getElementById("hiddenList");
 const hiddenCount = document.getElementById("hiddenCount");
 const hiddenEmpty = document.getElementById("hiddenEmpty");
 const hideMessage = document.getElementById("hideMessage");
+const reportList = document.getElementById("reportList");
+const reportEmpty = document.getElementById("reportEmpty");
+const reportMessage = document.getElementById("reportMessage");
 
 // 검색어 미리보기는 가게가 가장 많은 강남역 2km 안을 기준으로 세요.
 const PREVIEW_SPOT = { lat: 37.4979, lng: 127.0276, label: "강남역" };
 // 식당 검색 함수(nearby_places)는 가까운 80곳까지만 돌려줘요.
 const RPC_LIMIT = 80;
 const PLACE_RESULT_LIMIT = 30;
+// 같은 가게를 여러 사람이 알려도 한 줄로 모아요. 좌표가 소수 넷째 자리(약 10m)까지 같으면 같은 가게로 봐요.
+const REPORT_GROUP_DECIMALS = 4;
+// closure_reports.reason 값과 관리자 화면에 보여 줄 이름. 사용자 화면(nearby-renderer.js)의 사유와 같은 값이에요.
+const REPORT_REASON_NAMES = { closed: "문 닫음", no_info: "정보 없음", not_found: "찾을 수 없음" };
+// 검색 결과에는 가게 번호(osm_id)가 없고 같은 가게가 좌표만 조금 다르게 여러 줄 있어서, 알린 좌표 ±0.0005(약 50m) 안의 같은 이름 가게를 모두 숨겨요.
+const HIDE_COORD_TOLERANCE = 0.0005;
 
 let supabase = null;
 let editingId = null;
@@ -73,6 +82,8 @@ document.getElementById("logout").addEventListener("click", async () => {
 	lastPlaces = [];
 	placeResults.replaceChildren();
 	setMessage(hideMessage, "");
+	reportList.replaceChildren();
+	setMessage(reportMessage, "");
 	loginForm.reset();
 	loginForm.hidden = false;
 });
@@ -131,7 +142,7 @@ async function openManager(user) {
 	loginForm.hidden = true;
 	manager.hidden = false;
 	whoami.textContent = user.email + "으로 로그인했어요";
-	await Promise.all([refreshList(), refreshHidden()]);
+	await Promise.all([refreshList(), refreshHidden(), refreshReports()]);
 }
 
 async function refreshList() {
@@ -353,6 +364,114 @@ async function unhidePlace(place) {
 	}
 	setMessage(hideMessage, "다시 보이게 했어요: " + place.name);
 	await refreshHidden();
+}
+
+async function refreshReports() {
+	const { data, error } = await supabase
+		.from("closure_reports")
+		.select("id, name, address, lat, lng, reason, reported_at")
+		.order("reported_at", { ascending: false });
+	if (error) {
+		setMessage(reportMessage, "알림을 불러오지 못했어요: " + error.message, true);
+		return;
+	}
+	const groups = groupReports(data);
+	reportEmpty.hidden = groups.length > 0;
+	reportList.replaceChildren(...groups.map(reportItem));
+}
+
+// 이름과 좌표(소수 넷째 자리)가 같은 알림을 한 묶음으로 모아요. 알림은 최신순이라 묶음의 첫 알림이 가장 최근이고, 최근에 알린 묶음이 위로 와요.
+function groupReports(reports) {
+	const groups = new Map();
+	for (const report of reports) {
+		const key = report.name + "|" + report.lat.toFixed(REPORT_GROUP_DECIMALS) + "|" + report.lng.toFixed(REPORT_GROUP_DECIMALS);
+		const group = groups.get(key);
+		if (group) {
+			group.ids.push(report.id);
+			group.address ||= report.address;
+		} else {
+			groups.set(key, { name: report.name, address: report.address, lat: report.lat, lng: report.lng, latest: report.reported_at, ids: [report.id], reasons: new Map() });
+		}
+		const reasons = groups.get(key).reasons;
+		reasons.set(report.reason, (reasons.get(report.reason) ?? 0) + 1);
+	}
+	return [...groups.values()];
+}
+
+function reportItem(group) {
+	const item = document.createElement("li");
+	const text = document.createElement("div");
+	text.append(
+		textLine("place-name", group.name),
+		textLine("place-address", group.address || "주소 정보 없음"),
+		textLine("place-meta", reasonSummary(group.reasons) + " · 최근 " + monthDay(group.latest)),
+	);
+	const actions = document.createElement("div");
+	actions.className = "place-actions";
+	actions.append(
+		actionButton("숨기기", "small danger", () => hideReported(group)),
+		actionButton("지우기", "small", () => dismissReports(group)),
+	);
+	item.append(text, actions);
+	return item;
+}
+
+// '문 닫음 2 · 정보 없음 1'처럼 사유별 알림 수를 항상 같은 순서로 써요.
+function reasonSummary(reasons) {
+	return Object.entries(REPORT_REASON_NAMES)
+		.filter(([reason]) => reasons.has(reason))
+		.map(([reason, label]) => label + " " + reasons.get(reason))
+		.join(" · ");
+}
+
+function monthDay(iso) {
+	const date = new Date(iso);
+	return String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+}
+
+// 알린 가게를 숨길 때는 같은 이름으로 알린 좌표 근처에 있는 가게 줄을 모두 찾아 숨기고, 그 묶음의 알림은 지워요.
+// 가게를 하나도 못 찾으면(이미 지워진 가게 등) 알림은 그대로 두고 알려요.
+async function hideReported(group) {
+	const { data: places, error } = await supabase
+		.from("places")
+		.select("osm_id, name, address")
+		.eq("name", group.name)
+		.gte("lat", group.lat - HIDE_COORD_TOLERANCE)
+		.lte("lat", group.lat + HIDE_COORD_TOLERANCE)
+		.gte("lng", group.lng - HIDE_COORD_TOLERANCE)
+		.lte("lng", group.lng + HIDE_COORD_TOLERANCE);
+	if (error) {
+		setMessage(reportMessage, "가게를 찾지 못했어요: " + error.message, true);
+		return;
+	}
+	if (places.length === 0) {
+		setMessage(reportMessage, "숨길 가게를 찾지 못했어요: " + group.name, true);
+		return;
+	}
+	// 이미 숨긴 가게를 다시 넣으면 중복 오류가 나서 새 가게만 넣고, 알림은 그래도 지워요.
+	const fresh = places.filter((place) => !hiddenIds.has(place.osm_id));
+	if (fresh.length > 0) {
+		const { error: hideError } = await supabase
+			.from("hidden_places")
+			.insert(fresh.map((place) => ({ osm_id: place.osm_id, name: place.name, address: place.address })));
+		if (hideError) {
+			setMessage(reportMessage, "숨기지 못했어요: " + hideError.message, true);
+			return;
+		}
+	}
+	const { error: deleteError } = await supabase.from("closure_reports").delete().in("id", group.ids);
+	setMessage(reportMessage, deleteError ? "알림을 지우지 못했어요: " + deleteError.message : "", Boolean(deleteError));
+	await Promise.all([refreshHidden(), refreshReports()]);
+}
+
+async function dismissReports(group) {
+	const { error } = await supabase.from("closure_reports").delete().in("id", group.ids);
+	if (error) {
+		setMessage(reportMessage, "알림을 지우지 못했어요: " + error.message, true);
+		return;
+	}
+	setMessage(reportMessage, "");
+	await refreshReports();
 }
 
 // 숨긴 가게(이미 숨김)에는 버튼 대신 '숨김'을 보여 줘요.

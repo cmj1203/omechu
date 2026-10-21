@@ -24,6 +24,7 @@
 	--icon-pin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-6.5-5.6-6.5-10.5a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z'/%3E%3Ccircle cx='12' cy='10.5' r='2.3'/%3E%3C/svg%3E");
 	--icon-utensils: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3v6a2 2 0 0 0 4 0V3'/%3E%3Cpath d='M8 11v10'/%3E%3Cpath d='M17 21V3c-2.2 1.6-3.2 4.2-3.2 7.2V13H17'/%3E%3C/svg%3E");
 	--icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
+	--icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9.5v4'/%3E%3Cpath d='M12 17.5h.01'/%3E%3C/svg%3E");
 }
 
 * {
@@ -239,7 +240,7 @@ body {
 }
 
 @media (hover: hover) {
-	.text-button:hover {
+	.text-button:hover:not(:disabled) {
 		color: var(--ink);
 	}
 }
@@ -252,6 +253,12 @@ a.text-button {
 .text-button:focus-visible {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
+}
+
+/* '알렸어요'처럼 꺼진 글자 버튼은 밑줄을 빼서 더 못 누른다는 걸 보여 줘요. 글자색은 읽을 수 있게 그대로 둬요 */
+.text-button:disabled {
+	text-decoration: none;
+	cursor: default;
 }
 
 .skipped-note {
@@ -655,9 +662,15 @@ a.text-button {
 
 @media (hover: hover) {
 	#nearbyResult .restaurant-links a:hover,
-	#nearbyResult .restaurant-links button:hover {
+	#nearbyResult .restaurant-links button:hover:not(:disabled) {
 		border-color: var(--ink);
 	}
+}
+
+/* '알렸어요'로 꺼진 버튼은 현재 위치 버튼이 꺼졌을 때처럼 글자만 보조색으로 바꿔요 */
+#nearbyResult .restaurant-links button:disabled {
+	color: var(--ash);
+	cursor: default;
 }
 
 .others {
@@ -744,6 +757,107 @@ a.text-button {
 	color: var(--ash);
 	font-size: 13px;
 	font-variant-numeric: tabular-nums;
+}
+
+/* 경고(⚠) 단추: 글자가 없을 때만 삼각형을 그리고 40px 정사각형이에요. '알렸어요'처럼 글자가 들어가면 글자 단추로 돌아가요 */
+.report-button {
+	display: inline-flex;
+	align-items: center;
+}
+
+#nearbyResult .report-button:empty {
+	justify-content: center;
+	width: 40px;
+	padding: 0;
+}
+
+.report-button:empty::before {
+	content: "";
+	width: 17px;
+	height: 17px;
+	background: currentColor;
+	-webkit-mask: var(--icon-alert) center / contain no-repeat;
+	mask: var(--icon-alert) center / contain no-repeat;
+}
+
+/* 목록의 경고 단추는 오른쪽에 떠 있어요: 데스크톱은 도보 시간 오른쪽, 휴대폰은 이름 줄 끝.
+   40px 터치 높이가 줄을 크게 키우지 않게 위아래 18px는 음수 여백으로 줄 여백(10px) 안에 넣어요.
+   글자·아이콘은 40px 상자 가운데에 오는데 옆의 도보 시간은 줄 위쪽에 붙어서, 위를 더 많이 당겨 줄을 맞춰요.
+   아이콘은 상자 오른쪽에 붙여 도보 시간과 오른쪽 끝을 맞춰요 */
+#nearbyResult .others .report-button {
+	float: right;
+	margin: -12px 0 -6px;
+	padding-right: 0;
+}
+
+#nearbyResult .others .report-button:empty {
+	justify-content: flex-end;
+}
+
+/* 사유 고르는 창. 바깥을 눌렀는지 가리려고 안쪽 여백은 form 에 줘요 */
+.report-dialog {
+	width: min(320px, calc(100vw - 32px));
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-lg);
+	background: var(--canvas);
+	color: var(--ink);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.report-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.4);
+}
+
+.report-dialog form {
+	padding: 20px 20px 12px;
+}
+
+.report-dialog-title {
+	margin: 0 0 14px;
+	font-size: 16px;
+	font-weight: 800;
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+/* 창을 열 때 초점만 받는 제목이라 테두리를 그리지 않아요. Tab 을 누르면 사유 단추로 가요 */
+.report-dialog-title:focus {
+	outline: none;
+}
+
+.report-reasons {
+	display: grid;
+	gap: 8px;
+}
+
+.report-reasons button {
+	height: 44px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-sm);
+	background: var(--canvas);
+	color: var(--ink);
+	font: inherit;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: border-color 0.15s ease-out;
+}
+
+@media (hover: hover) {
+	.report-reasons button:hover {
+		border-color: var(--ink);
+	}
+}
+
+.report-reasons button:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+.report-dialog .text-button {
+	display: block;
+	margin: 8px auto 0;
 }
 
 .nearby-footer {
@@ -1049,6 +1163,7 @@ a.text-button {
 
 /* 가게 숨기기 카드는 빈 목록과 빈 안내 줄이 간격만 차지하지 않게 숨겨요 */
 #hideMessage:empty,
+#reportMessage:empty,
 .place-list:empty {
 	display: none;
 }
@@ -1107,10 +1222,18 @@ a.text-button {
 	font-weight: 700;
 }
 
-.place-address {
+.place-address,
+.place-meta {
 	margin: 2px 0 0;
 	color: var(--ash);
 	font-size: 12px;
+}
+
+/* 알림 한 줄에는 버튼이 둘('숨기기'·'지우기')이라 줄이 좁아도 세로로 쌓이지 않게 묶어요 */
+.place-actions {
+	display: flex;
+	flex: none;
+	gap: 6px;
 }
 
 .place-state {
