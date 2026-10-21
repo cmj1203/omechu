@@ -4,7 +4,7 @@ const SDK_URL = "https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=
 
 let sdk = null;
 
-function loadKakao() {
+export function loadKakao() {
 	sdk ??= new Promise((resolve, reject) => {
 		const script = document.createElement("script");
 		script.src = SDK_URL;

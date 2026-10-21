@@ -597,6 +597,22 @@ a.text-button {
 	letter-spacing: -0.02em;
 }
 
+.place-name-link {
+	color: inherit;
+	text-decoration: none;
+}
+
+@media (hover: hover) {
+	.place-name-link:hover {
+		text-decoration: underline;
+	}
+}
+
+.place-name-link:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
 .restaurant-walk {
 	--icon: var(--icon-clock);
 	display: flex;

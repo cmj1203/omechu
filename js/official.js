@@ -1,6 +1,7 @@
 import { getSupabase } from "./supabase.js";
 import { currentPosition, geocode } from "./nearby-location.js";
 import { walkMinutes } from "./nearby-database.js";
+import { placeNameLink } from "./place-page.js";
 
 const DEFAULT_RADIUS_METERS = 1500;
 const WIDER_RADIUS_METERS = 3000;
@@ -242,7 +243,7 @@ function pickItem(pick, rank, origin) {
 	const heading = document.createElement("div");
 	heading.className = "official-pick-heading";
 	const name = document.createElement("h3");
-	name.textContent = pick.name;
+	name.append(placeNameLink(pick));
 	heading.append(name);
 	if (pick.category) {
 		heading.append(chip(pick.category, "official-category"));

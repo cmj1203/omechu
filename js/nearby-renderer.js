@@ -1,3 +1,5 @@
+import { placeNameLink } from "./place-page.js";
+
 export function similarLabel(menu) {
 	if (menu.kinds.includes("식사")) {
 		return menu.cuisine === "아시아" ? "아시아 음식점" : menu.cuisine + "당";
@@ -13,8 +15,10 @@ export function restaurantCard(restaurant, origin) {
 	card.className = "restaurant-card";
 	card.append(
 		paragraph("restaurant-label", "추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
-		paragraph("restaurant-name", restaurant.name),
 	);
+	const name = paragraph("restaurant-name", "");
+	name.append(placeNameLink(restaurant));
+	card.append(name);
 	if (restaurant.officialVisits) {
 		card.append(officialBadge(restaurant.officialVisits));
 	}
@@ -46,7 +50,7 @@ export function othersList(restaurants, title) {
 		const item = document.createElement("li");
 		const time = document.createElement("span");
 		time.textContent = "도보 약 " + restaurant.walkMinutes + "분 · " + formatDistance(restaurant.distance);
-		item.append(link(restaurant.name, kakaoMapUrl(restaurant)));
+		item.append(placeNameLink(restaurant));
 		if (restaurant.menuName) {
 			const tag = document.createElement("em");
 			tag.className = "menu-tag";
