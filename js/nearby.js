@@ -34,6 +34,10 @@ export function initNearby(section) {
 			choosePlace();
 		}
 	});
+	// 위치 칸에 직접 적는 방식에서 글자를 바꾸면, 필터를 바꿀 때 새로 적은 곳으로 찾아요.
+	placeInput.addEventListener("input", () => {
+		originLookup = null;
+	});
 	placeInput.addEventListener("keydown", (event) => {
 		if (event.key !== "Enter" || button.disabled) {
 			return;

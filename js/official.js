@@ -84,16 +84,21 @@ async function searchNearby(useCurrentPosition) {
 	}
 	const id = ++requestId;
 	setLoading(useCurrentPosition ? "현재 위치를 확인하고 있어요." : place + " 근처를 찾고 있어요.", true, useCurrentPosition);
+	const lookup = useCurrentPosition ? currentPosition() : geocode(place);
+	lastOrigin = null;
+	originLookup = lookup;
 	try {
-		lastOrigin = null;
-		originLookup = useCurrentPosition ? currentPosition() : geocode(place);
-		const origin = await originLookup;
+		const origin = await lookup;
 		if (id !== requestId) {
 			return;
 		}
 		lastOrigin = origin;
 		await showNearby(origin, id);
 	} catch (error) {
+		// 위치를 못 찾았으면 그 위치를 버려서, 가격을 바꾸면 TOP 목록으로 돌아가요.
+		if (originLookup === lookup && !lastOrigin) {
+			originLookup = null;
+		}
 		showSearchError(id, error);
 	} finally {
 		unlockSearch(id);
