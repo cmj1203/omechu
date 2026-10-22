@@ -680,6 +680,10 @@ a.text-button {
 }
 
 .others-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
 	margin: 0 0 6px;
 	font-size: 15px;
 	font-weight: 800;
@@ -781,17 +785,15 @@ a.text-button {
 	mask: var(--icon-alert) center / contain no-repeat;
 }
 
-/* 목록의 경고 단추는 오른쪽에 떠 있어요: 데스크톱은 도보 시간 오른쪽, 휴대폰은 이름 줄 끝.
-   40px 터치 높이가 줄을 크게 키우지 않게 위아래 18px는 음수 여백으로 줄 여백(10px) 안에 넣어요.
-   글자·아이콘은 40px 상자 가운데에 오는데 옆의 도보 시간은 줄 위쪽에 붙어서, 위를 더 많이 당겨 줄을 맞춰요.
-   아이콘은 상자 오른쪽에 붙여 도보 시간과 오른쪽 끝을 맞춰요 */
-#nearbyResult .others .report-button {
-	float: right;
-	margin: -12px 0 -6px;
+/* 목록 제목줄 오른쪽 끝의 경고 단추 하나. 40px 터치 높이가 제목줄을 키우지 않게 위아래를 음수 여백으로 넣고,
+   아이콘은 상자 오른쪽에 붙여 아래 도보 시간과 오른쪽 끝을 맞춰요 */
+#nearbyResult .others-title .report-button {
+	flex: none;
+	margin: -10px 0;
 	padding-right: 0;
 }
 
-#nearbyResult .others .report-button:empty {
+#nearbyResult .others-title .report-button:empty {
 	justify-content: flex-end;
 }
 
@@ -810,8 +812,13 @@ a.text-button {
 	background: rgba(0, 0, 0, 0.4);
 }
 
+/* 가게가 30곳이면 창이 화면보다 길어져서, 목록만 스크롤하고 제목과 '취소'는 남겨요 */
 .report-dialog form {
+	display: flex;
+	flex-direction: column;
+	max-height: calc(100dvh - 48px);
 	padding: 20px 20px 12px;
+	box-sizing: border-box;
 }
 
 .report-dialog-title {
@@ -830,6 +837,8 @@ a.text-button {
 .report-reasons {
 	display: grid;
 	gap: 8px;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .report-reasons button {
@@ -849,6 +858,11 @@ a.text-button {
 	.report-reasons button:hover {
 		border-color: var(--ink);
 	}
+}
+
+.report-reasons button:disabled {
+	color: var(--ash);
+	cursor: default;
 }
 
 .report-reasons button:focus-visible {

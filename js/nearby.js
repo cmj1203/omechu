@@ -194,9 +194,10 @@ export function initNearby(section) {
 		} else if (found.mode === "similar") {
 			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}
-		nodes.push(restaurantCard(found.pick, origin));
-		if (found.others.length > 0) {
-			nodes.push(othersList(found.others, othersTitle(target, found)));
+		const hasOthers = found.others.length > 0;
+		nodes.push(restaurantCard(found.pick, origin, !hasOthers));
+		if (hasOthers) {
+			nodes.push(othersList(found.others, othersTitle(target, found), [found.pick, ...found.others]));
 		}
 		nodes.push(footer(target, origin));
 		result.replaceChildren(...nodes);

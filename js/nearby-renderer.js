@@ -12,6 +12,7 @@ const REPORT_REASONS = [
 ];
 const REPORT_LABEL = "가게 문제 알리기";
 let reportDialog = null;
+let placeDialog = null;
 
 export function similarLabel(menu) {
 	if (menu.kinds.includes("식사")) {
@@ -23,7 +24,8 @@ export function similarLabel(menu) {
 	return "술집";
 }
 
-export function restaurantCard(restaurant, origin) {
+// 아래에 다른 가게 목록이 있으면 그 제목줄의 경고 단추로 이 가게도 알리니까, 상자에는 단추를 두지 않아요.
+export function restaurantCard(restaurant, origin, withReport = true) {
 	const card = document.createElement("div");
 	card.className = "restaurant-card";
 	card.append(
@@ -49,16 +51,21 @@ export function restaurantCard(restaurant, origin) {
 		link("카카오맵 길찾기 ↗", kakaoRouteUrl(origin, restaurant)),
 		link("지도에서 보기 ↗", kakaoMapUrl(restaurant)),
 		shareButton(restaurant, origin),
-		reportButton(restaurant),
 	);
+	if (withReport) {
+		links.append(reportButton(restaurant));
+	}
 	card.append(links);
 	return card;
 }
 
-export function othersList(restaurants, title) {
+// 경고 단추는 가게마다 두지 않고 제목줄 오른쪽 끝에 하나만 두어요. reportable 은 그 단추로 고를 수 있는 가게예요.
+export function othersList(restaurants, title, reportable = restaurants) {
 	const wrapper = document.createElement("div");
 	wrapper.className = "others";
-	wrapper.append(paragraph("others-title", title));
+	const heading = paragraph("others-title", "");
+	heading.append(phrase(title), listReportButton(reportable));
+	wrapper.append(heading);
 	const list = document.createElement("ol");
 	for (const restaurant of restaurants) {
 		const item = document.createElement("li");
@@ -74,8 +81,7 @@ export function othersList(restaurants, title) {
 		if (restaurant.officialVisits) {
 			item.append(officialBadge(restaurant.officialVisits));
 		}
-		// 도보 시간보다 앞에 두어야 둘 다 오른쪽으로 띄웠을 때 버튼이 맨 오른쪽에 와요.
-		item.append(reportButton(restaurant, "text-button"), time);
+		item.append(time);
 		list.append(item);
 	}
 	wrapper.append(list);
@@ -192,10 +198,10 @@ function shareButton(restaurant, origin) {
 
 // 경고(⚠) 단추. 누르면 사유를 고르는 창이 열리고, 고르면 확인 없이 바로 보내요.
 // 보낸 가게는 이 기기에서 '알렸어요'로 꺼져 있어요.
-function reportButton(restaurant, className = "") {
+function reportButton(restaurant) {
 	const button = document.createElement("button");
 	button.type = "button";
-	button.className = ("report-button " + className).trim();
+	button.className = "report-button";
 	const key = reportKey(restaurant);
 	if (reported.has(key)) {
 		markReported(button);
@@ -225,6 +231,37 @@ function reportButton(restaurant, className = "") {
 	return button;
 }
 
+// 목록 제목줄의 경고 단추. 가게를 고르고 사유를 고르면 보내고, 2초 동안 결과를 보여 준 뒤 아이콘으로 돌아와요.
+// 한 목록에서 여러 가게를 알릴 수 있어서 단추는 꺼 두지 않고, 알린 가게만 가게 고르는 창에서 꺼져 있어요.
+function listReportButton(restaurants) {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "report-button text-button";
+	showReportIcon(button);
+	button.addEventListener("click", async () => {
+		const restaurant = await chooseReportPlace(restaurants);
+		if (!restaurant) {
+			return;
+		}
+		const reason = await chooseReportReason(restaurant.name);
+		if (!reason) {
+			return;
+		}
+		button.disabled = true;
+		const sent = await sendReport(restaurant, reason);
+		if (sent) {
+			reported.add(reportKey(restaurant));
+			saveReported();
+		}
+		showReportText(button, sent ? "알렸어요" : "알리지 못했어요");
+		setTimeout(() => {
+			showReportIcon(button);
+			button.disabled = false;
+		}, 2000);
+	});
+	return button;
+}
+
 // 글자가 없는 단추에만 CSS가 삼각형 아이콘을 그려요(.report-button:empty).
 function showReportIcon(button) {
 	button.textContent = "";
@@ -245,29 +282,47 @@ function markReported(button) {
 
 // 사유 창은 한 번만 만들어 두고 다시 써요. 고른 사유 값을, 취소·Esc·바깥 누르기면 빈 글자를 돌려줘요.
 function chooseReportReason(name) {
-	reportDialog ??= createReportDialog();
+	reportDialog ??= createReportDialog("reportDialogTitle", REPORT_REASONS.map(([value, label]) => dialogButton(label, value)));
 	reportDialog.querySelector(".report-dialog-title").textContent = name;
-	reportDialog.returnValue = "";
-	reportDialog.showModal();
-	// 열자마자 초점을 가게 이름에 두어, 첫 사유('문 닫았어요')에 테두리가 생겨 골라 둔 것처럼 보이지 않게 해요(사파리).
-	reportDialog.querySelector(".report-dialog-title").focus();
+	return askDialog(reportDialog);
+}
+
+// 가게 고르는 창. 고른 가게를, 취소·Esc·바깥 누르기면 null 을 돌려줘요. 이미 알린 가게는 꺼져 있어요.
+async function chooseReportPlace(restaurants) {
+	placeDialog ??= createReportDialog("reportPlaceTitle", []);
+	placeDialog.querySelector(".report-dialog-title").textContent = "어느 가게예요?";
+	placeDialog.querySelector(".report-reasons").replaceChildren(...restaurants.map((restaurant, index) => {
+		const done = reported.has(reportKey(restaurant));
+		const button = dialogButton(restaurant.name + (done ? " · 알렸어요" : ""), String(index));
+		button.disabled = done;
+		return button;
+	}));
+	const picked = await askDialog(placeDialog);
+	return picked === "" ? null : restaurants[Number(picked)];
+}
+
+function askDialog(dialog) {
+	dialog.returnValue = "";
+	dialog.showModal();
+	// 열자마자 초점을 제목에 두어, 첫 단추에 테두리가 생겨 골라 둔 것처럼 보이지 않게 해요(사파리).
+	dialog.querySelector(".report-dialog-title").focus();
 	return new Promise((resolve) => {
-		reportDialog.addEventListener("close", () => resolve(reportDialog.returnValue), { once: true });
+		dialog.addEventListener("close", () => resolve(dialog.returnValue), { once: true });
 	});
 }
 
-function createReportDialog() {
+function createReportDialog(titleId, choices) {
 	const dialog = document.createElement("dialog");
 	dialog.className = "report-dialog";
-	dialog.setAttribute("aria-labelledby", "reportDialogTitle");
+	dialog.setAttribute("aria-labelledby", titleId);
 	const form = document.createElement("form");
 	form.method = "dialog";
 	const title = paragraph("report-dialog-title", "");
-	title.id = "reportDialogTitle";
+	title.id = titleId;
 	title.tabIndex = -1;
 	const reasons = document.createElement("div");
 	reasons.className = "report-reasons";
-	reasons.append(...REPORT_REASONS.map(([value, label]) => dialogButton(label, value)));
+	reasons.append(...choices);
 	const cancel = dialogButton("취소", "");
 	cancel.className = "text-button";
 	form.append(title, reasons, cancel);
