@@ -36,6 +36,11 @@ SEOUL_SERVICES: Final = ("LOCALDATA_072404", "LOCALDATA_072405", "LOCALDATA_0722
 SEOUL_BOX: Final = (37.413, 37.716, 126.734, 127.270)
 NATIONAL_BOX: Final = (33.0, 39.5, 124.0, 132.0)
 NATIONAL_URL: Final = "https://apis.data.go.kr/1741000/general_restaurants/info"
+# 하루 호출 한도가 10,000번이고 한 번에 100건만 줘서, 영업 중 전체(약 6,750번)와 최근 2년 폐업(약 1,550번)만 받아요.
+NATIONAL_CLOSED_DAYS: Final = 730
+# 깊은 페이지는 느리고 동시 16개면 504가 나서, 날짜 구간을 2만 건 이하로 나눠 8개씩 읽어요.
+NATIONAL_CHUNK: Final = 20_000
+NATIONAL_WORKERS: Final = 8
 SBIZ_LAG: Final = timedelta(days=120)
 TRANSFORM: Final = Transformer.from_crs("EPSG:5174", "EPSG:4326", always_xy=True)
 
@@ -86,7 +91,7 @@ class NationalInput(BaseModel):
 
 
 class NationalItems(BaseModel):
-    item: list[NationalInput]
+    item: list[NationalInput] = []
 
 
 class NationalBody(BaseModel):
@@ -259,41 +264,78 @@ def seoul_licenses() -> Iterator[License]:
                             yield license_row
 
 
+def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> NationalBody:
+    query = urllib.parse.urlencode({
+        "serviceKey": urllib.parse.unquote(os.environ["DATA_GO_KR_KEY"]),
+        "pageNo": page, "numOfRows": rows, "returnType": "json", **conditions,
+    })
+    error = ""
+    # 서버가 가끔 HTTP_ERROR나 504를 주므로, 전체 실행을 버리지 않게 같은 페이지만 다시 불러요.
+    for wait in (10, 20, 40, 0):
+        try:
+            payload = get_json(NATIONAL_URL + "?" + query, TypeAdapter(NationalPayload)).response
+            if str(payload.header.resultCode) in {"00", "0"}:
+                return payload.body
+            error = "전국 인허가 응답이 정상이 아니에요."
+        except RuntimeError as failure:
+            error = str(failure)
+        time.sleep(wait)
+    raise RuntimeError(f"전국 인허가 {page}쪽을 네 번 불러도 실패해서 중단해요: {error}")
+
+
+def date_chunks(field: str, base: dict[str, str], start: date, end: date) -> Iterator[tuple[dict[str, str], int]]:
+    # 서버는 날짜 칸을 글자 순서로 비교하고 대부분 '2024-05-01' 형식이라, 경계도 같은 형식으로 넣어야 구간이 고르게 나뉜요.
+    conditions = {**base, f"cond[{field}::GTE]": start.isoformat(), f"cond[{field}::LT]": end.isoformat()}
+    total = national_body(conditions, 1, 1).totalCount
+    if total <= NATIONAL_CHUNK or (end - start).days <= 1:
+        if total:
+            yield conditions, total
+        return
+    middle = start + timedelta(days=(end - start).days // 2)
+    yield from date_chunks(field, base, start, middle)
+    yield from date_chunks(field, base, middle, end)
+
+
 def national_licenses() -> Iterator[License]:
     """공식 Swagger의 100건 제한과 전국 필드명을 서울 공통 형식으로 맞춰요."""
-    page, received = 1, 0
-    total: int | None = None
-    while True:
-        query = urllib.parse.urlencode({
-            "serviceKey": urllib.parse.unquote(os.environ["DATA_GO_KR_KEY"]),
-            "pageNo": page, "numOfRows": 100, "returnType": "json",
-        })
-        payload = get_json(NATIONAL_URL + "?" + query, TypeAdapter(NationalPayload)).response
-        if str(payload.header.resultCode) not in {"00", "0"}:
-            raise RuntimeError("전국 인허가 응답이 정상이 아니어서 동기화를 중단해요.")
-        body = payload.body
-        rows = body.items.item
-        if total is None:
-            total = body.totalCount
-            if total <= 0:
-                raise RuntimeError("전국 인허가 자료가 비어 있어 동기화를 중단해요.")
-            print(f"전국 일반음식점: {total:,}건 (키 발급 후 실제 응답 검증 필요)", flush=True)
-        if body.totalCount != total or not rows:
-            raise RuntimeError("전국 자료가 누락되거나 총건수가 바뀌어서 중단해요.")
-        if len(rows) != min(100, total - received):
-            raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
-        for row in rows:
-            license_row = parse_license(LicenseInput(
-                BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
-                DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
-                SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
-            ), "national")
-            if license_row:
-                yield license_row
-        received += len(rows)
-        if received >= total:
-            return
-        page += 1
+    since = date.today() - timedelta(days=NATIONAL_CLOSED_DAYS)
+    active = {"cond[SALS_STTS_CD::EQ]": "01"}
+    # 끝을 먼 날로 잡아서 '20261019'처럼 형식이 다른 날짜도 어느 구간엔가 들어가게 해요.
+    groups: tuple[tuple[str, str, dict[str, str], date, dict[str, str]], ...] = (
+        ("영업", "LCPMT_YMD", active, date(1900, 1, 1), active),
+        ("최근 폐업", "CLSBIZ_YMD", {}, since, {"cond[CLSBIZ_YMD::GTE]": since.isoformat()}),
+    )
+    chunks: list[tuple[dict[str, str], int]] = []
+    for label, field, base, start, everything in groups:
+        expected = national_body(everything, 1, 1).totalCount
+        found = list(date_chunks(field, base, start, date(2100, 1, 1)))
+        # 날짜가 비어 구간에서 빠지는 자료가 생기면 영업 기록을 놓쳐 엉뚱한 가게를 숨길 수 있어요.
+        if expected <= 0 or sum(total for _, total in found) != expected:
+            raise RuntimeError(f"전국 {label} 자료를 날짜 구간으로 나눈 합이 전체와 달라서 중단해요.")
+        print(f"전국 일반음식점 {label}: {expected:,}건, {len(found)}구간", flush=True)
+        chunks += found
+    pages = [(conditions, total, page) for conditions, total in chunks for page in range(1, math.ceil(total / 100) + 1)]
+    with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
+        # 한 번에 64쪽만 유지해서 전체 응답을 메모리에 쌓지 않아요.
+        for base in range(0, len(pages), 64):
+            window = pages[base:base + 64]
+            bodies = [pool.submit(national_body, conditions, page) for conditions, _, page in window]
+            for (_, total, page), body_future in zip(window, bodies):
+                body = body_future.result()
+                rows = body.items.item
+                if body.totalCount != total:
+                    raise RuntimeError("전국 자료 총건수가 실행 중 바뀌어서 동기화를 중단해요.")
+                if len(rows) != min(100, total - (page - 1) * 100):
+                    raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
+                for row in rows:
+                    license_row = parse_license(LicenseInput(
+                        BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
+                        DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
+                        SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
+                    ), "national")
+                    if license_row:
+                        yield license_row
+            print(f"전국 인허가 {min(base + 64, len(pages)):,}/{len(pages):,}쪽", flush=True)
 
 
 def places(box: tuple[float, float, float, float]) -> Iterator[Place]:

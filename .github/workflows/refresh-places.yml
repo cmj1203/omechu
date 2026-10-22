@@ -18,7 +18,8 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    # 전국 인허가는 하루 한도 안에서 약 8,300쪽을 받느라 두 시간쯤 걸려요.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v7
       - name: osmium·xlrd 설치
