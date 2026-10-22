@@ -952,14 +952,17 @@ a.text-button {
 	width: auto;
 	height: 56px;
 	margin: 0;
+	padding: 0 8px;
+	white-space: nowrap;
 	box-shadow: 0 8px 20px var(--accent-shadow);
 }
 
-/* 가게 검색 칸: 평소에는 단추처럼 작은 알약이고, 누르면 '추천받기'를 가리고 줄 전체로 넓어져요 */
+/* 메뉴·가게 검색 칸: 평소에는 단추처럼 작은 알약이고, 누르면 '추천받기'와 다른 칸을 가리고 줄 전체로 넓어져요.
+   두 칸과 '다시 추천받기'가 휴대폰 한 줄에 들어가게 칸은 108px, 글자는 15px이에요 */
 .store-search {
 	position: relative;
 	flex: none;
-	width: 136px;
+	width: 108px;
 	color: var(--ink);
 }
 
@@ -967,9 +970,9 @@ a.text-button {
 	content: "";
 	position: absolute;
 	top: 50%;
-	left: 18px;
-	width: 18px;
-	height: 18px;
+	left: 13px;
+	width: 16px;
+	height: 16px;
 	background: currentColor;
 	transform: translateY(-50%);
 	pointer-events: none;
@@ -980,13 +983,13 @@ a.text-button {
 .store-search input {
 	width: 100%;
 	height: 56px;
-	padding: 0 16px 0 44px;
+	padding: 0 10px 0 35px;
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-full);
 	background: var(--canvas);
 	color: var(--ink);
 	font: inherit;
-	font-size: 17px;
+	font-size: 15px;
 	font-weight: 700;
 	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 	text-overflow: ellipsis;
@@ -1032,12 +1035,41 @@ a.text-button {
 	color: var(--ash);
 }
 
-.main-actions:focus-within #recommend {
+/* 검색 칸에 글자를 치는 동안만 넓혀요. 크롬은 '추천받기'를 누르면 그 단추에 초점을 주어서,
+   줄 전체의 :focus-within 으로 가리면 누른 '추천받기'가 사라져요 */
+.main-actions:has(.store-search input:focus) #recommend,
+.main-actions:has(.store-search input:focus) .store-search:not(:focus-within) {
 	display: none;
 }
 
-.main-actions:focus-within .store-search {
+.main-actions .store-search:focus-within {
 	flex: 1;
+}
+
+/* 갤럭시처럼 폭이 360px인 화면에서도 '다시 추천받기'가 한 줄에 들어가게 조금 더 줄여요 */
+@media (max-width: 380px) {
+	.main-actions {
+		gap: 6px;
+	}
+
+	#recommend {
+		font-size: 16px;
+	}
+
+	.store-search {
+		width: 100px;
+	}
+
+	.store-search::before {
+		left: 11px;
+		width: 15px;
+		height: 15px;
+	}
+
+	.store-search input {
+		padding: 0 8px 0 31px;
+		font-size: 14px;
+	}
 }
 
 #recommend:disabled {

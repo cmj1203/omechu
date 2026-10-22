@@ -6,6 +6,8 @@ const form = document.getElementById("filters");
 const recommendButton = document.getElementById("recommend");
 const storeSearch = document.getElementById("storeSearch");
 const storeQuery = document.getElementById("storeQuery");
+const menuSearch = document.getElementById("menuSearch");
+const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
 const dataNote = document.getElementById("dataNote");
 const lockNote = document.getElementById("cuisineLockNote");
@@ -45,6 +47,7 @@ try {
 	recommendButton.disabled = false;
 	recommendButton.textContent = "추천받기";
 	storeQuery.disabled = false;
+	menuQuery.disabled = false;
 } catch (error) {
 	console.error(error);
 	recommendButton.textContent = "메뉴를 불러오지 못했어요";
@@ -57,6 +60,7 @@ form.addEventListener("submit", (event) => {
 });
 
 storeSearch.addEventListener("submit", searchStores);
+menuSearch.addEventListener("submit", searchMenus);
 
 function recommendMenu() {
 	resultMode = "menu";
@@ -96,7 +100,31 @@ function searchStores(event) {
 	const menu = menus.find((candidate) => candidate.name === query)
 		?? menus.find((candidate) => (candidate.search_terms ?? []).includes(query) && !(candidate.broad_terms ?? []).includes(query));
 	result.replaceChildren(paragraph("menu-label", "가게 검색"), paragraph("menu-tags", query));
-	nearby.showSearch(query, menu ?? null);
+	nearby.showSearch(query, menu ? [menu] : []);
+}
+
+// 친 말과 이름이 같은 메뉴, 없으면 이름에 그 말이 든 메뉴들('국수' → 잔치국수·비빔국수)을 파는 가게를
+// 가게 검색과 같은 목록으로 보여 줘요. 띄어쓰기는 무시해요.
+function searchMenus(event) {
+	event.preventDefault();
+	const query = menuQuery.value.trim();
+	if (!query) {
+		menuQuery.focus();
+		return;
+	}
+	resultMode = "search";
+	current = null;
+	menuQuery.blur();
+	const key = query.replace(/\s+/g, "");
+	const exact = menus.find((menu) => menu.name.replace(/\s+/g, "") === key);
+	const matched = exact ? [exact] : menus.filter((menu) => menu.name.replace(/\s+/g, "").includes(key));
+	if (matched.length === 0) {
+		nearby.hide();
+		showMessage("'" + query + "' 메뉴가 없어요.");
+		return;
+	}
+	result.replaceChildren(paragraph("menu-label", "메뉴 검색"), paragraph("menu-tags", matched.map((menu) => menu.name).join(", ")));
+	nearby.showSearch(query, matched);
 }
 
 // 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.

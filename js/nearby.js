@@ -13,7 +13,7 @@ export function initNearby(section) {
 	let menu = null;
 	let filterMenus = [];
 	let listMode = false;
-	let queryMenu = null;
+	let queryMenus = [];
 	let searchId = 0;
 	let pickedOrigin = null;
 	let originLookup = null;
@@ -55,9 +55,10 @@ export function initNearby(section) {
 			start();
 		},
 		// 직접 친 말로 찾은 가게를 가까운 순으로 보여 줘요. '구글 지도에서 더 찾기'도 그 말로 찾아요.
-		showSearch(query, matchedMenu) {
+		// matchedMenus 가 있으면 그 메뉴를 주력으로 파는 가게를, 없으면 이름에 그 말이 든 가게를 찾아요.
+		showSearch(query, matchedMenus) {
 			menu = { name: query };
-			queryMenu = matchedMenu;
+			queryMenus = matchedMenus;
 			filterMenus = [];
 			listMode = true;
 			start();
@@ -110,7 +111,7 @@ export function initNearby(section) {
 		const target = menu;
 		const pool = filterMenus;
 		const asList = listMode;
-		const matchedMenu = queryMenu;
+		const matchedMenus = queryMenus;
 		let origin = null;
 		try {
 			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
@@ -124,7 +125,7 @@ export function initNearby(section) {
 			}
 			setBusy("식당 찾는 중…", useCurrentPosition);
 			if (asList) {
-				const found = await searchStores(target.name, matchedMenu, origin);
+				const found = await searchStores(target.name, matchedMenus, origin);
 				if (id === searchId) {
 					renderList(target, origin, found);
 				}

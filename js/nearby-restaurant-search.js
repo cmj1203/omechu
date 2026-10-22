@@ -45,11 +45,11 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	return { ...near, searchedKm: WIDER_RADIUS_METERS / 1000 };
 }
 
-// 가게 검색: 메뉴를 친 것이면 그 메뉴를 주력으로 파는 가게를, 아니면 이름에 그 말이 든 가게를
-// 가까운 순으로 최대 30곳 보여 줘요. 모두 같은 말로 찾은 거라 목록의 메뉴 표시는 빼요.
-export async function searchStores(query, menu, origin) {
-	const found = menu ? await listRestaurants([menu], origin) : await searchByName(query, origin);
-	return { ...found, places: found.places.map(({ menuName, ...place }) => place) };
+// 가게·메뉴 검색: 메뉴가 정해졌으면 그 메뉴를 주력으로 파는 가게를, 아니면 이름에 그 말이 든 가게를
+// 가까운 순으로 최대 30곳 보여 줘요. 메뉴가 하나뿐이면 모두 같은 메뉴라 목록의 메뉴 표시는 빼요.
+export async function searchStores(query, menus, origin) {
+	const found = menus.length > 0 ? await listRestaurants(menus, origin) : await searchByName(query, origin);
+	return menus.length > 1 ? found : { ...found, places: found.places.map(({ menuName, ...place }) => place) };
 }
 
 // '김밥 천국'처럼 띄어 친 말은 붙여 쓴 이름 '김밥천국'도 찾아요.
