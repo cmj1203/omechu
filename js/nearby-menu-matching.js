@@ -98,6 +98,25 @@ export function isMenuPlace(place, menu) {
 		|| (name === place.name.toLowerCase() && menuCategories([menu]).includes(place.category));
 }
 
+// 넓은 업종으로만 맞았는데 이름으로 보아 다른 메뉴 가게인지 봐요. 김치찌개의 '국/탕/찌개류'에는 '잣고을곰탕'·'장터국밥'도 들어 있어요.
+// 그 업종이 주력인 메뉴(백반/한정식의 백반·밥집)의 검색어는 그 업종 가게답게 하는 이름이라 세지 않아요.
+export function isOtherMenuPlace(place, menu) {
+	if (hasSearchTerm(nameForMenu(place, menu), menu) || !(menu.broad_categories ?? []).includes(place.category)) {
+		return false;
+	}
+	const name = place.name.toLowerCase();
+	return allMenus.some((other) => other.name !== menu.name
+		&& !(other.categories ?? []).includes(place.category)
+		&& hasMainTerm(name, other));
+}
+
+let allMenus = [];
+
+// 넓은 업종 가게가 다른 메뉴 가게인지 보려면 전체 메뉴가 필요해서, 메뉴를 불러온 뒤 한 번 넘겨줘요.
+export function rememberMenus(menus) {
+	allMenus = menus;
+}
+
 export function mainCategories(menus) {
 	return [...new Set(menus.flatMap((menu) => menu.categories ?? []))];
 }

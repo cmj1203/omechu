@@ -1,4 +1,5 @@
 import { loadMenus } from "./menus.js";
+import { rememberMenus } from "./nearby-menu-matching.js";
 import { initNearby } from "./nearby.js";
 
 const form = document.getElementById("filters");
@@ -35,6 +36,7 @@ let skipped = readSkipped();
 try {
 	const loaded = await loadMenus();
 	menus = loaded.menus;
+	rememberMenus(menus);
 	skipped = skipped.filter((name) => menus.some((menu) => menu.name === name));
 	if (loaded.usedFallback) {
 		dataNote.textContent = "지금은 기본 메뉴 목록으로 추천하고 있어요.";

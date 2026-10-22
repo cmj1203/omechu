@@ -1,5 +1,5 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
-import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, mainCategories, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
+import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, isOtherMenuPlace, mainCategories, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
@@ -77,7 +77,11 @@ function choose(menu, filterMenus, forMenu, forFilters) {
 	const mainByName = withoutDuplicates(named.filter((place) => hasMainTerm(nameForMenu(place, menu), menu)));
 	const mainByCategory = withoutDuplicates(named.filter((place) => !hasMainTerm(nameForMenu(place, menu), menu) && isMainPlace(place, menu)));
 	const exact = [...mainByName, ...mainByCategory];
-	const broad = withoutDuplicates(named.filter((place) => !isMainPlace(place, menu)));
+	const broadAll = withoutDuplicates(named.filter((place) => !isMainPlace(place, menu)));
+	// 넓은 업종으로만 맞는 다른 메뉴 가게(김치찌개의 '잣고을곰탕')는 다른 가게가 없을 때만 써요.
+	// 칼국수의 '시골잔치국수'처럼 그것밖에 없으면 엉뚱한 메뉴보다는 나아서요.
+	const broadPlain = broadAll.filter((place) => !isOtherMenuPlace(place, menu));
+	const broad = broadPlain.length > 0 ? broadPlain : broadAll;
 	if (exact.length > 0) {
 		const pick = pickNear(mainByName.length > 0 ? mainByName : mainByCategory);
 		// 다른 가까운 곳도 같은 메뉴를 파는 가게로 보여 줘요. 같은 메뉴 가게가 이 한 곳뿐이면 조건에 맞는 다른 메뉴 가게를 보여 줘요.
