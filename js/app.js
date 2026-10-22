@@ -4,7 +4,8 @@ import { initNearby } from "./nearby.js";
 
 const form = document.getElementById("filters");
 const recommendButton = document.getElementById("recommend");
-const storeListButton = document.getElementById("storeList");
+const storeSearch = document.getElementById("storeSearch");
+const storeQuery = document.getElementById("storeQuery");
 const result = document.getElementById("result");
 const dataNote = document.getElementById("dataNote");
 const lockNote = document.getElementById("cuisineLockNote");
@@ -14,10 +15,9 @@ const nearby = initNearby(document.getElementById("nearby"));
 lockCuisine();
 form.addEventListener("change", () => {
 	lockCuisine();
+	// 가게 검색은 조건과 상관없이 찾아서, 조건을 바꿔도 다시 찾지 않아요.
 	if (resultMode === "menu") {
 		recommendMenu();
-	} else if (resultMode === "list") {
-		showStoreList();
 	}
 });
 // 뒤로 가기로 돌아오면 브라우저가 고른 값을 나중에 되살려서, 그때 한 번 더 맞춰요
@@ -44,7 +44,7 @@ try {
 	}
 	recommendButton.disabled = false;
 	recommendButton.textContent = "추천받기";
-	storeListButton.disabled = false;
+	storeQuery.disabled = false;
 } catch (error) {
 	console.error(error);
 	recommendButton.textContent = "메뉴를 불러오지 못했어요";
@@ -56,7 +56,7 @@ form.addEventListener("submit", (event) => {
 	recommendMenu();
 });
 
-storeListButton.addEventListener("click", showStoreList);
+storeSearch.addEventListener("submit", searchStores);
 
 function recommendMenu() {
 	resultMode = "menu";
@@ -80,20 +80,23 @@ function recommendMenu() {
 	recommendButton.textContent = "다시 추천받기";
 }
 
-// 고른 조건(뺀 메뉴 제외)에 맞는 메뉴를 파는 가게를 가까운 순으로 보여 줘요.
-function showStoreList() {
-	resultMode = "list";
-	const allowed = allowedMenus(false);
-	if (!allowed) {
+// 직접 친 말로 주변 가게를 찾아요. 메뉴 이름(또는 그 메뉴의 주력 검색어)이면 그 메뉴를 주력으로 파는 가게를,
+// 아니면 이름에 그 말이 든 가게를 보여 줘요.
+function searchStores(event) {
+	event.preventDefault();
+	const query = storeQuery.value.trim();
+	if (!query) {
+		storeQuery.focus();
 		return;
 	}
+	resultMode = "search";
 	current = null;
-	const filters = Object.fromEntries(new FormData(form));
-	result.replaceChildren(
-		paragraph("menu-label", "가게 목록"),
-		paragraph("menu-tags", ([filters.kind, filters.cuisine].filter((value) => value !== "전체").join(" | ") || "전체") + " · 메뉴 " + allowed.length + "개"),
-	);
-	nearby.showList(allowed);
+	// 키보드를 내리고 칸을 다시 작게 돌려 '다시 추천받기'가 보이게 해요.
+	storeQuery.blur();
+	const menu = menus.find((candidate) => candidate.name === query)
+		?? menus.find((candidate) => (candidate.search_terms ?? []).includes(query) && !(candidate.broad_terms ?? []).includes(query));
+	result.replaceChildren(paragraph("menu-label", "가게 검색"), paragraph("menu-tags", query));
+	nearby.showSearch(query, menu ?? null);
 }
 
 // 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.

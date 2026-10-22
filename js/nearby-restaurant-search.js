@@ -1,5 +1,5 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
-import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, isOtherMenuPlace, mainCategories, mainTerms, nameForMenu, similarFor } from "./nearby-menu-matching.js";
+import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, isOtherMenuPlace, mainCategories, mainTerms, nameForMenu, searchTerms, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
@@ -7,6 +7,7 @@ const MAX_OTHERS = 8;
 const MAX_LIST = 30;
 const SAME_PLACE_METERS = 20;
 const HANGUL = /[가-힣]/;
+const ALL_KINDS = ["식사", "간식", "술"];
 
 export async function searchRestaurants(menu, filterMenus, origin) {
 	let forMenu;
@@ -44,7 +45,34 @@ export async function searchRestaurants(menu, filterMenus, origin) {
 	return { ...near, searchedKm: WIDER_RADIUS_METERS / 1000 };
 }
 
-// 가게 목록: 고른 조건의 메뉴를 주력으로 파는 가게를 가까운 순으로 최대 30곳. 2km 안에 없으면 5km까지 찾아요.
+// 가게 검색: 메뉴를 친 것이면 그 메뉴를 주력으로 파는 가게를, 아니면 이름에 그 말이 든 가게를
+// 가까운 순으로 최대 30곳 보여 줘요. 모두 같은 말로 찾은 거라 목록의 메뉴 표시는 빼요.
+export async function searchStores(query, menu, origin) {
+	const found = menu ? await listRestaurants([menu], origin) : await searchByName(query, origin);
+	return { ...found, places: found.places.map(({ menuName, ...place }) => place) };
+}
+
+// '김밥 천국'처럼 띄어 친 말은 붙여 쓴 이름 '김밥천국'도 찾아요.
+async function searchByName(query, origin) {
+	const terms = [...new Set([query, query.replace(/\s+/g, "")])];
+	const byName = { name: query, kinds: ALL_KINDS, search_terms: terms };
+	for (const radius of [SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS]) {
+		let found;
+		try {
+			found = await searchDatabase(origin, [byName], null, radius, searchTerms, () => []);
+		} catch (error) {
+			throw new Error("가게를 찾지 못했어요. 잠시 후 다시 찾아 주세요.", { cause: error });
+		}
+		const places = withoutDuplicates(found.filter((place) => place.matched).map((place) => ({ ...place, menuName: query })))
+			.sort((a, b) => a.distance - b.distance)
+			.slice(0, MAX_LIST);
+		if (places.length > 0 || radius === WIDER_RADIUS_METERS) {
+			return { places, wider: radius === WIDER_RADIUS_METERS, searchedKm: radius / 1000 };
+		}
+	}
+}
+
+// 메뉴 하나 또는 여러 메뉴를 주력으로 파는 가게를 가까운 순으로 최대 30곳. 2km 안에 없으면 5km까지 찾아요.
 export async function listRestaurants(filterMenus, origin) {
 	for (const radius of [SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS]) {
 		let found;

@@ -58,7 +58,9 @@
 
 		<div class="main-actions">
 			<button type="submit" form="filters" id="recommend" class="primary" disabled>메뉴 불러오는 중…</button>
-			<button type="button" id="storeList" class="secondary" disabled>가게 목록</button>
+			<form id="storeSearch" class="store-search" role="search">
+				<input type="search" id="storeQuery" name="q" aria-label="가게 검색" placeholder="가게 검색" enterkeyhint="search" autocomplete="off" disabled>
+			</form>
 		</div>
 		<p id="dataNote" class="note" hidden></p>
 	</main>
