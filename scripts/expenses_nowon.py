@@ -113,11 +113,15 @@ def fetch_records(since, today):
         if data is None:
             return item, "failed", None
         # hwpx 도 zip(PK)이라, 엑셀인지는 zip 안의 xl/workbook.xml 로 가려요
-        if data.startswith(b"PK") and "xl/workbook.xml" not in zipfile.ZipFile(io.BytesIO(data)).namelist():
-            return item, "hwp", None
         if not data.startswith(b"PK"):
             return item, "hwp" if data.startswith(b"\xd0\xcf\x11\xe0") else "pdf", None
-        parsed = parse_workbook(data, dept, since, today)
+        # 압축이 깨진 첨부는 머리글을 못 찾은 파일로 세요(10% 기준에 들어요).
+        try:
+            if "xl/workbook.xml" not in zipfile.ZipFile(io.BytesIO(data)).namelist():
+                return item, "hwp", None
+            parsed = parse_workbook(data, dept, since, today)
+        except local_expenses.XLSX_ERRORS:
+            return item, "header", None
         return item, ("header" if parsed is None else "ok"), parsed
 
     records = []

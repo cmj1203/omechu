@@ -8,7 +8,7 @@ import html
 import re
 import urllib.parse
 
-from local_expenses import excel_moment, fetch, number, record, text, xlsx_rows
+from local_expenses import XLSX_ERRORS, excel_moment, fetch, number, record, text, xlsx_rows
 
 AGENCY = "도봉구"
 ORIGIN = "https://www.dobong.go.kr"
@@ -183,7 +183,11 @@ def fetch_records(since, today):
         if data is None:
             continue
         if data.startswith(b"PK"):
-            rows = xlsx_rows(data)
+            try:
+                rows = xlsx_rows(data)
+            except XLSX_ERRORS:
+                skipped_other += 1
+                continue
         elif data.startswith(b"\xd0\xcf\x11\xe0"):
             rows = xls_rows(data)
             if rows is None:

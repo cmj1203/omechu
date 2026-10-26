@@ -216,7 +216,7 @@ def read_post(post, since, today):
                 # 배포용으로 암호화된 한글 문서는 XML 로 읽히지 않아서 지원 안 함으로 세요.
                 try:
                     rows = hwpx_rows(data) if is_hwpx else xlsx_rows(data)
-                except ET.ParseError:
+                except local_expenses.XLSX_ERRORS:
                     rows = None
         elif data.startswith(b"\xd0\xcf\x11\xe0"):
             rows = xls_rows(data)

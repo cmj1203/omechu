@@ -110,7 +110,12 @@ def read_post(post):
         if not data.startswith(b"PK"):
             stats["unsupported"] += 1
             continue
-        records += rows_to_records(xlsx_rows(data), dept or title)
+        try:
+            rows = xlsx_rows(data)
+        except local_expenses.XLSX_ERRORS:
+            stats["unsupported"] += 1
+            continue
+        records += rows_to_records(rows, dept or title)
     return records
 
 

@@ -181,7 +181,10 @@ def read_attachment(url, post_dept, since, today):
     except OSError:
         return [], "failed"
     if data.startswith(b"PK"):
-        rows = xlsx_rows(data)
+        try:
+            rows = xlsx_rows(data)
+        except local_expenses.XLSX_ERRORS:
+            return [], "unreadable"
     elif data.startswith(b"\xd0\xcf\x11\xe0"):
         rows = xls_rows(data)
         if rows is None:

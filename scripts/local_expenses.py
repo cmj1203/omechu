@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 
 USER_AGENT = "Mozilla/5.0 (omechu official-picks import)"
 EUNPYEONG_LIST = "https://www.ep.go.kr/www/selectJobPrtnCtWebList.do?key=666&pageUnit=1000&searchCnd=all&searchKrwd=&pageIndex={}"
@@ -24,6 +25,8 @@ MOIS_ARTICLE = "https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardArticle.
 MOIS_ORIGIN = "https://www.mois.go.kr"
 MAX_PAGES = 400
 XLSX_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+# 확장자만 엑셀이고 압축·XML·칸 번호가 깨진 첨부를 xlsx_rows 로 읽을 때 나는 오류들. 그 첨부 하나만 건너뛰려고 여러 구가 같이 써요.
+XLSX_ERRORS = (zipfile.BadZipFile, zlib.error, EOFError, KeyError, IndexError, ValueError, ET.ParseError)
 
 
 def fetch(url, data=None, referer=None):
