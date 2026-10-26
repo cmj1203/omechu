@@ -7,6 +7,9 @@ import datetime
 import html
 import io
 import re
+import ssl
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -28,8 +31,19 @@ def fetch(url, data=None, referer=None):
     if referer:
         headers["Referer"] = referer
     request = urllib.request.Request(url, data=data, headers=headers)
-    with urllib.request.urlopen(request, timeout=120) as response:
-        return response.read()
+    # 구청 서버가 가끔 잠깐 500 을 주거나 연결을 끊거나 답을 늦게 줘서, 서버 오류·연결 실패·읽기 시간 초과만 5초 쉬고 두 번 더 불러요.
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code < 500 or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            # 인증서 오류는 다시 불러도 같아서 바로 넘겨요(중구는 이걸 보고 검증 없이 다시 받아요).
+            if attempt == 2 or isinstance(getattr(error, "reason", None), ssl.SSLError):
+                raise
+        time.sleep(5)
 
 
 def text(cell_html):

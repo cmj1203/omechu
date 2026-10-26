@@ -6,6 +6,10 @@ import-official-picks.sh 가 실행해요.
 환경 변수: SEOUL_OPENAPI_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DRY_RUN=1 이면 올리지 않고 결과만 세요
 """
 import calendar
+import importlib
+import multiprocessing
+import queue as queue_module
+import time
 import collections
 import csv
 import datetime
@@ -19,12 +23,21 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+import expenses_dobong
+import expenses_gangnam
+import expenses_gwanak
+import expenses_junggu
+import expenses_nowon
+import expenses_yangcheon
 import local_expenses
 
 API_PAGE = 1000
 RECENT_MONTHS = 24
 MIN_VISITS = 2
-AGENCY_ORDER = ["서울시 본청", "은평구", "서대문구", "행정안전부"]
+AGENCY_ORDER = ["서울시 본청", "은평구", "서대문구", "관악구", "강남구", "중구", "도봉구", "노원구", "양천구", "행정안전부"]
+# 구청 홈페이지에서 받는 구들이에요. 한 구 사이트가 막혀도 나머지 구는 올리려고, 실패한 구만 건너뛰어요.
+DISTRICTS = [("관악구", expenses_gwanak), ("강남구", expenses_gangnam), ("중구", expenses_junggu),
+             ("도봉구", expenses_dobong), ("노원구", expenses_nowon), ("양천구", expenses_yangcheon)]
 # 다과·간식 구입이 대부분이라 맛집에서 빼는 업종 (구내식당·유흥 주점도 빼요)
 SKIPPED_MIDDLE = {"비알코올", "구내식당·뷔페"}
 SKIPPED_SUB = {"빵/도넛", "떡/한과", "아이스크림/빙수", "일반 유흥 주점", "무도 유흥 주점"}
@@ -280,6 +293,44 @@ def upload(picks):
             raise RuntimeError("업로드 실패: HTTP " + str(error.code) + " " + error.read().decode("utf-8", "replace")[:300]) from error
 
 
+# 구청 서버 하나가 응답을 끌면 전체가 몇 시간씩 멈춰서, 구마다 따로 된 프로세스로 동시에 받고 시간 제한을 넘으면 꺼요.
+DISTRICT_TIMEOUT = 40 * 60
+
+
+def district_worker(module_name, since, today, queue):
+    try:
+        queue.put(("ok", importlib.import_module(module_name).fetch_records(since, today)))
+    except (RuntimeError, OSError) as error:
+        queue.put(("error", str(error)))
+
+
+def district_records(since, today):
+    context = multiprocessing.get_context("spawn")
+    jobs = []
+    for name, module in DISTRICTS:
+        queue = context.Queue()
+        process = context.Process(target=district_worker, args=(module.__name__, since, today, queue), daemon=True)
+        process.start()
+        jobs.append((name, process, queue))
+        print(f"{name} 업무추진비 받기 시작", flush=True)
+    deadline = time.monotonic() + DISTRICT_TIMEOUT
+    records = []
+    for name, process, queue in jobs:
+        try:
+            status, value = queue.get(timeout=max(1, deadline - time.monotonic()))
+        except queue_module.Empty:
+            status, value = "error", f"{DISTRICT_TIMEOUT // 60}분 안에 끝나지 않았어요"
+        process.join(5)
+        if process.is_alive():
+            process.terminate()
+        if status == "ok":
+            records += value
+            print(f"{name} 업무추진비 {len(value):,}건 받음", flush=True)
+        else:
+            print(f"{name} 업무추진비를 건너뛰어요: {value}", flush=True)
+    return records
+
+
 def main():
     zip_path, imported_at = sys.argv[1], sys.argv[2]
     today = datetime.date.today()
@@ -288,6 +339,7 @@ def main():
     records += local_expenses.eunpyeong(since)
     records += local_expenses.seodaemun(since, today)
     records += local_expenses.mois(since)
+    records += district_records(since, today)
     by_agency = collections.Counter(record["agency"] for record in records)
     print("업무추진비 받음: " + ", ".join(f"{agency} {by_agency[agency]:,}건" for agency in AGENCY_ORDER), flush=True)
     picks, counts = build_picks(records, food_stores(zip_path), imported_at, today)
