@@ -23,24 +23,37 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+import expenses_busan
+import expenses_daegu
+import expenses_daejeon
 import expenses_dobong
 import expenses_gangnam
 import expenses_gwanak
+import expenses_gwangju
 import expenses_junggu
 import expenses_nowon
+import expenses_seongnam
 import expenses_yangcheon
+import expenses_yongin
 import local_expenses
 
 API_PAGE = 1000
 RECENT_MONTHS = 24
 MIN_VISITS = 2
-AGENCY_ORDER = ["서울시 본청", "은평구", "서대문구", "관악구", "강남구", "중구", "도봉구", "노원구", "양천구", "행정안전부"]
+AGENCY_ORDER = ["서울시 본청", "은평구", "서대문구", "관악구", "강남구", "중구", "도봉구", "노원구", "양천구", "행정안전부", "부산광역시", "대구광역시", "대전광역시", "광주", "성남시", "용인시"]
 # 구청 홈페이지에서 받는 구들이에요. 한 구 사이트가 막혀도 나머지 구는 올리려고, 실패한 구만 건너뛰어요.
 DISTRICTS = [("관악구", expenses_gwanak), ("강남구", expenses_gangnam), ("중구", expenses_junggu),
-             ("도봉구", expenses_dobong), ("노원구", expenses_nowon), ("양천구", expenses_yangcheon)]
+             ("도봉구", expenses_dobong), ("노원구", expenses_nowon), ("양천구", expenses_yangcheon),
+             ("부산광역시", expenses_busan), ("대구광역시", expenses_daegu), ("대전광역시", expenses_daejeon),
+             ("광주", expenses_gwangju), ("성남시", expenses_seongnam), ("용인시", expenses_yongin)]
 # 다과·간식 구입이 대부분이라 맛집에서 빼는 업종 (구내식당·유흥 주점도 빼요)
 SKIPPED_MIDDLE = {"비알코올", "구내식당·뷔페"}
+# 상가정보에서 가게를 모을 시도 파일. 서울·세종 말고는 그 시도의 업무추진비를 붙일 때 더해요.
+STORE_FILES = ("_서울_", "_세종_", "_부산_", "_대구_", "_대전_", "_전남광주_", "_경기_")
+PLAIN_SIDO = {"서울특별시", "세종특별자치시"}
 SKIPPED_SUB = {"빵/도넛", "떡/한과", "아이스크림/빙수", "일반 유흥 주점", "무도 유흥 주점"}
+# 업종은 분식으로 올라 있어도 실제로는 기관 직원 매점·구내 식당인 곳('대전광역시청직원복지회')은 이름으로 빼요.
+SKIPPED_NAME_WORDS = ("복지회",)
 
 
 def normalized(name):
@@ -78,7 +91,7 @@ def food_stores(zip_path):
     """상가정보에서 서울·세종 음식점을 주소(도로명·지번)와 구(시)별 이름으로 찾을 수 있게 모아요. 세종은 행정안전부 기록용이에요."""
     by_road, by_lot, by_name, by_full = (collections.defaultdict(list) for _ in range(4))
     with zipfile.ZipFile(zip_path, metadata_encoding="cp949") as archive:
-        infos = [item for item in archive.infolist() if item.filename.endswith(".csv") and ("_서울_" in item.filename or "_세종_" in item.filename)]
+        infos = [item for item in archive.infolist() if item.filename.endswith(".csv") and any(part in item.filename for part in STORE_FILES)]
         for info in infos:
             rows = csv.reader(io.TextIOWrapper(archive.open(info), encoding="utf-8-sig"))
             col = {name: index for index, name in enumerate(next(rows))}
@@ -86,11 +99,17 @@ def food_stores(zip_path):
                 middle, sub = row[col["상권업종중분류명"]].strip(), row[col["상권업종소분류명"]].strip()
                 if row[col["상권업종대분류명"]].strip() != "음식" or middle in SKIPPED_MIDDLE or sub in SKIPPED_SUB:
                     continue
+                if any(word in row[col["상호명"]] for word in SKIPPED_NAME_WORDS):
+                    continue
                 try:
                     lat, lng = float(row[col["위도"]]), float(row[col["경도"]])
                 except ValueError:
                     continue
                 gu = row[col["시군구명"]].strip()
+                sido = row[col["시도명"]].strip()
+                # 서울·세종은 원래대로 구 이름만 쓰고, 다른 시도는 '부산광역시 중구'처럼 앞에 붙여 다른 도시의 같은 구 이름과 섞이지 않게 해요.
+                if sido not in PLAIN_SIDO:
+                    gu = sido + " " + gu
                 road = row[col["도로명"]].split()[-1:]
                 number = address_number(row[col["건물본번지"]], row[col["건물부번지"]])
                 store = {
@@ -209,6 +228,14 @@ def find_by_name(name, gus, stores):
     return no_branch[0] if len(no_branch) == 1 and not same_branch and len(gus) == 1 else None
 
 
+def region_gus(gus, all_gus):
+    """기록의 지역이 '부산광역시'·'경기도 성남시'처럼 시 단위면, 그 이름으로 시작하는 구를 모두 찾는 곳으로 넓혀요."""
+    found = []
+    for gu in gus:
+        found += [name for name in all_gus if name == gu or name.startswith(gu + " ")] or [gu]
+    return found
+
+
 def is_meal(record):
     purpose = record["purpose"]
     if re.search(r"다과|커피|음료|물품|상품권|기념품|성금|조의금|축의금|격려금", purpose):
@@ -222,6 +249,8 @@ def build_picks(records, stores, imported_at, today):
     since = window_start(today)
     counts = collections.Counter()
     visits = {}
+    all_gus = {gu for gu, _ in stores[2]}
+    expanded = {}
     for record in records:
         when = record["when"]
         if when is None:
@@ -237,7 +266,10 @@ def build_picks(records, stores, imported_at, today):
         if record["gus"] is None:
             store = find_store(record["location"], stores)
         else:
-            store = find_by_name(record["name"], record["gus"], stores)
+            key = tuple(record["gus"])
+            if key not in expanded:
+                expanded[key] = region_gus(record["gus"], all_gus)
+            store = find_by_name(record["name"], expanded[key], stores)
         if store is None:
             counts["가게 못 찾음"] += 1
             continue
