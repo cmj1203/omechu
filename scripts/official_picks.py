@@ -332,8 +332,9 @@ DISTRICT_TIMEOUT = 40 * 60
 def district_worker(module_name, since, today, queue):
     try:
         queue.put(("ok", importlib.import_module(module_name).fetch_records(since, today)))
-    except (RuntimeError, OSError) as error:
-        queue.put(("error", str(error)))
+    # 어떤 오류로 끝나든 결과를 남겨요. 안 남기면 부모가 40분 제한까지 기다려요.
+    except Exception as error:
+        queue.put(("error", str(error) if isinstance(error, (RuntimeError, OSError)) else f"{type(error).__name__}: {error}"))
 
 
 def district_records(since, today):

@@ -71,7 +71,11 @@ def download(url):
 
 
 def xls_rows(data):
-    import xlrd  # 옛 엑셀(.xls)이라 xlrd 가 필요해요.
+    """옛 엑셀(.xls)은 xlrd 가 있을 때만 읽어요. 없으면 None(건너뛴 첨부로 세요)."""
+    try:
+        import xlrd
+    except ImportError:
+        return None
 
     # 확장자만 .xls 이고 실제로는 엑셀이 아닌 첨부가 섞여 있어서, 못 여는 파일은 건너뛰어요.
     try:
@@ -182,6 +186,9 @@ def fetch_records(since, today):
             rows = xlsx_rows(data)
         elif data.startswith(b"\xd0\xcf\x11\xe0"):
             rows = xls_rows(data)
+            if rows is None:
+                skipped_other += 1
+                continue
         else:
             skipped_other += 1
             continue

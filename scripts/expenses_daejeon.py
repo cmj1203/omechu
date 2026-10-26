@@ -10,6 +10,8 @@ import re
 import threading
 import time
 import urllib.parse
+import zipfile
+from xml.etree import ElementTree
 
 from local_expenses import USER_AGENT, fetch, number, record, text, xlsx_rows
 
@@ -197,7 +199,12 @@ def read_post(board, seq, dept, since, today):
             statuses.append("failed")
             continue
         if data.startswith(b"PK"):
-            rows = xlsx_rows(data)
+            # 확장자만 엑셀이고 압축이 깨진 첨부는 읽을 수 없는 파일로 세고 넘어가요.
+            try:
+                rows = xlsx_rows(data)
+            except (zipfile.BadZipFile, KeyError, ValueError, ElementTree.ParseError):
+                statuses.append("unreadable")
+                continue
         elif data.startswith(b"\xd0\xcf\x11\xe0"):
             rows = xls_rows(data)
         else:

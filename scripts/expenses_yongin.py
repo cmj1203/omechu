@@ -159,11 +159,16 @@ def xls_rows(data):
 def read_post(item, since, today):
     """상세 화면의 첨부를 읽고 다운로드 실패와 미지원 형식을 따로 세어요."""
     path, dept = item
-    page_html = fetch(BOARD + path).decode("utf-8")
-    links = dict.fromkeys(html.unescape(path) for path in re.findall(
-        r'(/component/file/ND_fileDownload\.do\?[^"\'<>\s]+)', page_html))
     counts = {"attachments": 0, "downloaded": 0, "failed": 0,
               "unsupported": 0, "unreadable": 0, "ok": 0, "empty_posts": 0}
+    # 상세 화면 하나를 못 받아도 도시 전체를 버리지 않고, 첨부 받기 실패처럼 세서 10% 기준에 넣어요.
+    try:
+        page_html = fetch(BOARD + path).decode("utf-8")
+    except OSError:
+        counts["attachments"] = counts["failed"] = 1
+        return [], counts
+    links = dict.fromkeys(html.unescape(path) for path in re.findall(
+        r'(/component/file/ND_fileDownload\.do\?[^"\'<>\s]+)', page_html))
     if not links:
         # 집행 내역 '없음'을 첨부 없이 본문으로 공표하는 부서도 있어요.
         if "첨부파일이 없습니다." in page_html and re.search(
