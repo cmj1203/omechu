@@ -1,4 +1,4 @@
-import { currentPosition, geocode, locationAlreadyAllowed } from "./nearby-location.js";
+import { addressOf, currentPosition, geocode, locationAlreadyAllowed } from "./nearby-location.js";
 import { footer, othersList, paragraph, restaurantCard, similarLabel } from "./nearby-renderer.js";
 import { searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
 import { initPlacePicker } from "./place-picker.js";
@@ -89,7 +89,7 @@ export function initNearby(section) {
 		button.disabled = false;
 		button.textContent = idleLabel();
 		currentButton.disabled = false;
-		currentButton.textContent = "현재 위치로 찾기";
+		currentButton.textContent = "현재 위치로 추천받기";
 		result.replaceChildren();
 		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
 		orderChoices.hidden = !RATINGS_ENABLED || listMode;
@@ -117,7 +117,8 @@ export function initNearby(section) {
 	}
 
 	async function findRestaurants(useCurrentPosition, reuseOrigin = false) {
-		const place = useCurrentPosition ? "" : placeInput.value.trim();
+		const typed = placeInput.value.trim();
+		const place = useCurrentPosition ? "" : typed;
 		if (!reuseOrigin && !useCurrentPosition && !place) {
 			showMessage("동네나 역 이름을 입력해 주세요.", menu, "");
 			placeInput.focus();
@@ -137,6 +138,9 @@ export function initNearby(section) {
 				originLookup = useCurrentPosition ? currentPosition() : picked ? Promise.resolve(picked) : geocode(place);
 			}
 			origin = await originLookup;
+			if (useCurrentPosition) {
+				showAddress(origin, typed);
+			}
 			// 위치를 기다리는 사이 새 검색이 시작됐으면 여기서 멈춰요. 계속 가면 새 검색 버튼을 '식당 찾는 중…'으로 다시 잠가요.
 			if (id !== searchId) {
 				return;
@@ -165,8 +169,18 @@ export function initNearby(section) {
 				button.disabled = false;
 				button.textContent = idleLabel();
 				currentButton.disabled = false;
-				currentButton.textContent = "현재 위치로 찾기";
+				currentButton.textContent = "현재 위치로 추천받기";
 			}
+		}
+	}
+
+	// 현재 위치로 찾으면 그 주소를 위치 칸에 넣어 둬요. 그 칸으로 다시 찾으면 주소를 다시 찾지 않고 같은 좌표를 써요.
+	// 주소를 찾는 동안 기다리지 않고 식당부터 찾고, 그사이 위치 칸을 바꿨으면 덮어쓰지 않아요.
+	async function showAddress(origin, before) {
+		const address = await addressOf(origin);
+		if (address && placeInput.value.trim() === before) {
+			placeInput.value = address;
+			pickedOrigin = { label: address, lat: origin.lat, lng: origin.lng };
 		}
 	}
 
@@ -191,7 +205,7 @@ export function initNearby(section) {
 		button.disabled = true;
 		currentButton.disabled = true;
 		button.textContent = useCurrentPosition ? idleLabel() : label;
-		currentButton.textContent = useCurrentPosition ? label : "현재 위치로 찾기";
+		currentButton.textContent = useCurrentPosition ? label : "현재 위치로 추천받기";
 	}
 
 	function render(target, origin, found) {

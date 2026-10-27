@@ -1,3 +1,6 @@
+import { loadKakao } from "./place-picker.js";
+
+const ADDRESS_TIMEOUT_MS = 4000;
 const GEO_ERRORS = {
 	1: "위치 권한이 꺼져 있어요. 주소창 왼쪽 아이콘에서 위치를 '허용'으로 바꾸거나, 위치 칸에 동네 이름을 적어 주세요.",
 	2: "현재 위치를 알 수 없어요. 기기의 위치 서비스를 켜거나, 위치 칸에 동네 이름을 적어 주세요.",
@@ -24,6 +27,33 @@ export function currentPosition() {
 			{ timeout: 10000, maximumAge: 60000 },
 		);
 	});
+}
+
+// 좌표를 위치 칸에 보여 줄 주소로 바꿔요(카카오, 도로명 주소 먼저). 못 바꾸면 null.
+export async function addressOf(origin) {
+	try {
+		const kakao = await withTimeout(loadKakao());
+		const [found] = await withTimeout(new Promise((resolve) => {
+			new kakao.maps.services.Geocoder().coord2Address(
+				origin.lng,
+				origin.lat,
+				(data, status) => resolve(status === kakao.maps.services.Status.OK ? data : []),
+			);
+		}));
+		return found?.road_address?.address_name || found?.address?.address_name || null;
+	} catch (error) {
+		console.warn("현재 위치의 주소를 찾지 못했어요.", error);
+		return null;
+	}
+}
+
+function withTimeout(promise) {
+	return Promise.race([
+		promise,
+		new Promise((_, reject) => {
+			setTimeout(() => reject(new Error("카카오 주소 찾기가 " + ADDRESS_TIMEOUT_MS / 1000 + "초 안에 끝나지 않았어요.")), ADDRESS_TIMEOUT_MS);
+		}),
+	]);
 }
 
 export async function geocode(place) {
