@@ -39,10 +39,10 @@ export function restaurantCard(restaurant, origin, withReport = true) {
 		card.append(officialBadge(restaurant.officialVisits));
 	}
 	if (restaurant.googleRating !== undefined) {
-		const rating = paragraph("restaurant-rating", "오메추 평점 " + ratingText(restaurant.googleRating));
+		const rating = paragraph("restaurant-rating", "구글 평점 " + ratingText(restaurant.googleRating));
 		rating.title = ratingTitle(restaurant.googleRating);
 		if (omechuRating(restaurant.googleRating) !== null) {
-			rating.append(phrase(" · 구글 " + restaurant.googleRating.rating.toFixed(1) + " · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
+			rating.append(phrase(" · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
 		}
 		card.append(rating);
 	}
@@ -100,11 +100,10 @@ export function othersList(restaurants, title, reportable = restaurants) {
 	return wrapper;
 }
 
-// 오메추 평점(리뷰 수를 반영한 구글 평점)은 리뷰가 MIN_REVIEWS 개 이상일 때만 보여 주고, 평점이 없거나 리뷰가 적으면 '-'로 보여 줘요.
-// 평점을 묻지 못한 가게(구글 키 없음·오류)에는 아무것도 붙이지 않아요.
+// 화면에는 구글 평점·리뷰 수를 그대로 보여 줘요. 리뷰 수를 반영한 오메추 평점은 추천 순서를 정할 때만 써요.
+// 평점이 없거나 리뷰가 MIN_REVIEWS 개보다 적으면 '-', 평점을 묻지 못한 가게(구글 키 없음·오류)에는 아무것도 붙이지 않아요.
 function ratingText(found) {
-	const rating = omechuRating(found);
-	return rating === null ? "-" : rating.toFixed(1);
+	return omechuRating(found) === null ? "-" : found.rating.toFixed(1);
 }
 
 function ratingTag(found) {
@@ -122,7 +121,7 @@ function ratingTitle(found) {
 	if (omechuRating(found) === null) {
 		return "구글 리뷰가 " + MIN_REVIEWS + "개보다 적어서(" + found.reviews + "개) 평점을 쓰지 않아요";
 	}
-	return "오메추 평점 " + ratingText(found) + " (구글 " + found.rating.toFixed(1) + " · 리뷰 " + found.reviews.toLocaleString("ko-KR") + "개, 리뷰가 적을수록 4.0 쪽으로 당겨 셈)";
+	return "구글 평점 " + found.rating.toFixed(1) + " · 리뷰 " + found.reviews.toLocaleString("ko-KR") + "개";
 }
 
 // 서울시청 업무추진비로 최근 2년 동안 결제한 횟수예요. 누르면 공무원 맛집 탭으로 가요.

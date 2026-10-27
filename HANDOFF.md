@@ -21,7 +21,7 @@
 
 5. **평점 우선 / 거리 우선 고르기 + 오메추 평점** (사용자 요청 2026-10-27, 끝남)
    - `index.html`의 `#nearbyOrder` 칩 → `js/nearby.js`가 `searchRestaurants(..., order)`로 넘김. 바꾸면 같은 위치에서 바로 다시 고름.
-   - `omechuRating()` (`js/place-rating.js`): 리뷰 수를 반영한 평점. 화면에는 오메추 평점을, 괄호·툴팁에 구글 원래 평점과 리뷰 수.
+   - `omechuRating()` (`js/place-rating.js`): 리뷰 수를 반영한 평점. **추천 순서에만 쓰고 화면에는 안 보임** (사용자 요청). 화면은 구글 평점·리뷰 수 그대로 (`구글 평점 4.7 · 리뷰 1,200`, 목록 `★ 4.7`).
    - `fieldset.elements`는 라디오를 RadioNodeList로 묶어 주지 않아서(첫 input만 나옴) `querySelector("input:checked")`로 읽음.
 
 ## 정한 것과 이유
