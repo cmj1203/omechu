@@ -13,7 +13,7 @@ export function getSupabase() {
 		return Promise.resolve(null);
 	}
 	clientPromise ??= Promise.race([
-		import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")
+		import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/+esm")
 			.then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)),
 		new Promise((_, reject) => {
 			setTimeout(() => reject(new Error("Supabase 라이브러리를 불러오지 못했어요.")), LIBRARY_TIMEOUT_MS);

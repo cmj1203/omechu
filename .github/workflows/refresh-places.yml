@@ -21,7 +21,7 @@ jobs:
     # 전국 인허가는 하루 한도 안에서 약 8,300쪽을 받느라 두 시간쯤 걸려요.
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: osmium·xlrd 설치
         run: sudo apt-get update && sudo apt-get install -y osmium-tool python3-xlrd
       - name: 식당 정보 가져오기
