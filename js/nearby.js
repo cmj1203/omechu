@@ -1,6 +1,6 @@
 import { addressOf, currentPosition, geocode, locationAlreadyAllowed } from "./nearby-location.js";
 import { footer, othersList, paragraph, restaurantCard, similarLabel } from "./nearby-renderer.js";
-import { searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
+import { placeKey, searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
 import { initPlacePicker } from "./place-picker.js";
 import { RATINGS_ENABLED } from "./place-rating.js";
 
@@ -21,6 +21,8 @@ export function initNearby(section) {
 	let pickedOrigin = null;
 	let originLookup = null;
 	let busy = false;
+	// '다른 가게'로 이미 보여 준 가게. 메뉴·위치·추천 기준이 바뀌면 비워요.
+	const shown = new Set();
 	let order = readOrder();
 	picker ??= initPlacePicker(document.querySelector("#placePicker"));
 	orderChoices.querySelector("input[value='" + order + "']").checked = true;
@@ -82,7 +84,7 @@ export function initNearby(section) {
 		const id = ++searchId;
 		busy = false;
 		currentButton.disabled = false;
-		currentButton.textContent = "현재 위치로 추천받기";
+		shown.clear();
 		result.replaceChildren();
 		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
 		orderChoices.hidden = !RATINGS_ENABLED || listMode;
@@ -109,7 +111,8 @@ export function initNearby(section) {
 		}
 	}
 
-	async function findRestaurants(useCurrentPosition, reuseOrigin = false) {
+	// another 면 같은 위치·메뉴로 이미 보여 준 가게를 빼고 다시 골라요('다른 가게' 단추).
+	async function findRestaurants(useCurrentPosition, reuseOrigin = false, another = false) {
 		const typed = placeInput.value.trim();
 		const place = useCurrentPosition ? "" : typed;
 		if (!reuseOrigin && !useCurrentPosition && !place) {
@@ -124,9 +127,12 @@ export function initNearby(section) {
 		const asList = listMode;
 		const matchedMenus = queryMenus;
 		const chosenOrder = order;
+		if (!another) {
+			shown.clear();
+		}
 		let origin = null;
 		try {
-			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
+			setBusy(useCurrentPosition ? "현재 위치 확인 중…" : "위치 찾는 중…");
 			if (!reuseOrigin) {
 				originLookup = useCurrentPosition ? currentPosition() : picked ? Promise.resolve(picked) : geocode(place);
 			}
@@ -138,7 +144,7 @@ export function initNearby(section) {
 			if (id !== searchId) {
 				return;
 			}
-			setBusy("식당 찾는 중…", useCurrentPosition);
+			setBusy("식당 찾는 중…");
 			if (asList) {
 				const found = await searchStores(target.name, matchedMenus, origin);
 				if (id === searchId) {
@@ -146,8 +152,9 @@ export function initNearby(section) {
 				}
 				return;
 			}
-			const found = await searchRestaurants(target, pool, origin, chosenOrder);
+			const found = await searchRestaurants(target, pool, origin, chosenOrder, shown);
 			if (id === searchId) {
+				rememberShown(found.pick);
 				render(target, origin, found);
 			}
 		} catch (error) {
@@ -161,7 +168,6 @@ export function initNearby(section) {
 			if (id === searchId) {
 				busy = false;
 				currentButton.disabled = false;
-				currentButton.textContent = "현재 위치로 추천받기";
 			}
 		}
 	}
@@ -190,15 +196,22 @@ export function initNearby(section) {
 		result.replaceChildren(...nodes);
 	}
 
-	// 현재 위치로 찾을 때는 그 단추에, 위치 칸으로 찾을 때는 결과 자리에 하는 일을 보여 줘요.
-	function setBusy(label, useCurrentPosition) {
+	// 이미 보여 준 가게가 다시 나왔으면 후보를 다 돈 것이라 처음부터 다시 세요.
+	function rememberShown(pick) {
+		if (!pick) {
+			return;
+		}
+		if (shown.has(placeKey(pick))) {
+			shown.clear();
+		}
+		shown.add(placeKey(pick));
+	}
+
+	// 찾는 동안 결과 자리에 하는 일을 보여 주고, 위치 칸·현재 위치 단추는 꺼 둬요.
+	function setBusy(label) {
 		busy = true;
 		currentButton.disabled = true;
-		if (useCurrentPosition) {
-			currentButton.textContent = label;
-		} else {
-			result.replaceChildren(paragraph("nearby-message", label));
-		}
+		result.replaceChildren(paragraph("nearby-message", label));
 	}
 
 	function render(target, origin, found) {
@@ -221,7 +234,7 @@ export function initNearby(section) {
 			nodes.push(paragraph("nearby-note", "조건에 맞는 가게를 못 찾아서, 근처 " + similarLabel(target) + "을 골랐어요."));
 		}
 		const hasOthers = found.others.length > 0;
-		nodes.push(restaurantCard(found.pick, origin, !hasOthers));
+		nodes.push(restaurantCard(found.pick, origin, !hasOthers, () => findRestaurants(false, true, true)));
 		if (hasOthers) {
 			nodes.push(othersList(found.others, othersTitle(target, found), [found.pick, ...found.others]));
 		}

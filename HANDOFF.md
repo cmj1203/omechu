@@ -1,79 +1,68 @@
-# 이어받기 메모 (평점 추천)
+# 이어받기 메모
 
 다른 Claude 세션(터미널 등)이 이 작업을 이어받을 수 있게 적어 두는 문서예요. 작업할 때마다 고쳐요.
 
-- 브랜치: `claude/serene-faraday-2f849z` (PR 아직 없음)
+- 브랜치: `claude/serene-faraday-2f849z` (PR 아직 없음, PR은 사용자가 요청할 때만)
 - 마지막 갱신: 2026-10-27
+- 테스트: `npm ci && npm test`(화면), `PGHOST=… PGUSER=… PGPASSWORD=… npm run test:db`(DB). CI는 `.github/workflows/test.yml`.
 
-## 지금까지 한 것
+## 사용자가 해야 하는 일 (코드로 못 하는 것)
 
-1. **구글 평점 연동** (`js/place-rating.js`)
-   - 카카오·네이버 API는 평점·리뷰 수를 주지 않고, 화면 긁기는 약관 위반이라 사용자와 상의해 구글 Places로 정함.
-   - 서버 없이 브라우저에서 Maps JavaScript API의 `Place.searchByText`로 가게 이름을 찾고, 300m 안에서 이름이 서로 들어 있는 곳을 같은 가게로 봄.
-   - 결과: `{ rating, reviews }`, 구글에 없거나 평점이 없으면 `null`, 못 물어봤으면(키 없음·오류·4초 초과) `undefined`. 같은 가게는 화면을 연 동안 캐시.
-   - **`GOOGLE_MAPS_KEY`가 아직 비어 있음.** 사용자가 Google Cloud에서 키를 만들어 넣어야 함(README 8번). 비어 있으면 평점 기능 전체가 꺼지고 예전처럼 가까운 순.
-2. **추천에 평점 반영** (`js/nearby-restaurant-search.js`)
-   - `searchCandidates`가 반경(2km/5km)과 후보를 정하고(평점 안 물어봄), `choose`를 고르는 함수(`pickNearest` / 평점으로 고르는 함수)를 받아 한 번 더 돌려 추천을 고름.
-3. **표시** (`js/nearby-renderer.js`, `css/style.css`)
-   - 추천 상자에 평점 한 줄(`.restaurant-rating`), 다른 가까운 곳 목록에 `★ 4.6`(`.rating-tag`). 평점이 없거나 리뷰가 적으면 `-`, 못 물어봤으면 아무것도 안 붙임.
-   - 바닥글에 `평점 © Google` (구글 약관상 출처 표시).
-4. **검증**: 이 클라우드 환경에서는 구글·Supabase·CDN에 못 나가서, Playwright로 두 응답을 가짜로 바꿔 확인함(아래 '검증 방법').
+1. **구글 키**: `js/place-rating.js`의 `GOOGLE_MAPS_KEY`가 비어 있음. 비어 있으면 평점·영업 상태·추천 기준 칩이 모두 꺼지고 가까운 순으로만 고름.
+   키를 넣을 때 **HTTP 리퍼러 제한 + Places API 하루 할당량 상한**을 꼭 걸 것(README 8번).
+2. **Supabase 회원가입 켜기**: 대시보드 Authentication에서 새 가입 허용·Email 켜기, Redirect URLs 에 `https://cmj1203.github.io/omechu/**` 추가(README 9번). `supabase/config.toml`도 같게 맞춰 둠.
+3. **새 마이그레이션 적용**: `supabase db push` (아래 두 파일).
+4. **실제 서비스로 한 번 확인**: 이 클라우드 환경은 구글·카카오·Supabase에 못 나가서 모두 가짜 응답으로만 확인함. 특히
+   - CSP(`<meta http-equiv="Content-Security-Policy">`, 다섯 화면)에 막히는 실제 카카오·구글 스크립트·이미지가 없는지(브라우저 콘솔의 'Refused to …'). 막히면 그 주소를 다섯 HTML의 CSP에 더하면 됨.
+   - 구글 이름·위치 맞추기(체인점 '○○점', 영어 이름 가게), `place.isOpen()` 결과.
 
-5. **평점 우선 / 거리 우선 고르기 + 오메추 평점** (사용자 요청 2026-10-27, 끝남)
-   - `index.html`의 `#nearbyOrder` 칩('추천 기준' 이름표 옆에 작은 '평점'·'거리' 칩. 이름표를 옆에 두려고 fieldset/legend 대신 `role="radiogroup"` div) → `js/nearby.js`가 `searchRestaurants(..., order)`로 넘김. 바꾸면 같은 위치에서 바로 다시 고름.
-   - `omechuRating()` (`js/place-rating.js`): 리뷰 수를 반영한 평점. **추천 순서에만 쓰고 화면에는 안 보임** (사용자 요청). 화면은 구글 평점·리뷰 수 그대로 (`구글 평점 4.7 · 리뷰 1,200`, 목록 `★ 4.7`).
-   - `fieldset.elements`는 라디오를 RadioNodeList로 묶어 주지 않아서(첫 input만 나옴) `querySelector("input:checked")`로 읽음.
+## 기능별 정리
 
-6. **휴대폰에서 검색 칸을 '다시 추천받기' 아래 줄로** (사용자 요청, 끝남)
-   - `css/style.css`의 `@media (max-width: 480px)` `.main-actions` 블록. 예전 380px 이하 한 줄 맞추기 규칙은 지움. 480px 넘으면 예전처럼 한 줄.
+### 평점 추천 (`js/place-rating.js`, `js/nearby-restaurant-search.js`)
+- 카카오·네이버는 평점 API가 없고 화면 긁기는 약관 위반이라 구글 Places로 정함(사용자 동의).
+- 브라우저에서 Maps JavaScript API `Place.searchByText`로 이름을 찾고, 300m 안에서 이름이 서로 들어 있는 곳을 같은 가게로 봄. 같은 가게는 화면을 연 동안 캐시.
+- 돌려주는 값: `{ rating(없으면 null), reviews, openNow(true/false/undefined), closedForGood }`, 구글에서 못 찾으면 `null`, 못 물어봤으면 `undefined`.
+- **오메추 평점**(`omechuRating`) = `(리뷰수 × 구글평점 + 100 × 4.0) / (리뷰수 + 100)`. **추천 순서에만 쓰고 화면엔 구글 평점·리뷰 수 그대로**(사용자 요청). 리뷰 10개 미만·평점 없음은 `-`, 4.0으로 셈.
+- **평점 우선(기본)**: 가까운 10곳 중 오메추 평점 1등과 0.1 안쪽(최대 3곳)에서 무작위. **거리 우선**: 가까운 3곳 중 무작위. 둘 다 지금 문 닫은 가게(`knownClosed`)는 다른 가게가 없을 때만.
+- 다른 가까운 곳 목록: 평점 우선이면 오메추 평점 순, 거리 우선이면 가까운 순, 문 닫은 가게는 맨 뒤.
+- 추천 기준은 `localStorage`의 `omechu.recommendOrder`에 기억. 구글 키가 없거나 가게·메뉴 검색 목록이면 칩을 숨김. 가게·메뉴 검색 목록(최대 30곳)엔 평점을 안 붙임(비용).
 
-7. **휴대폰 최적화** (사용자 요청 "다른 어플들 참고해서", 끝남)
-   - `css/style.css` 맨 끝 `@media (max-width: 480px)` 블록에 모음. 내용은 DESIGN.md '휴대폰 최적화'.
-   - 375px에서 모든 화면(메뉴 추천·공무원 맛집·투표·로그인)의 누르는 곳 크기, 13px 미만 글자, 입력칸 글자 크기를 재는 Playwright 스크립트로 전후 비교함. 44px 못 넘는 건 글줄 안 링크와 추천 기준 칩뿐(일부러).
+### '다른 가게' (`js/nearby.js`, `searchRestaurants(..., shown)`)
+- 추천 상자 가게 이름 오른쪽 단추. `shown`(placeKey 묶음)을 빼고 다시 고름. 메뉴·위치·추천 기준이 바뀌면 비움.
+- 남은 게 문 닫은 가게뿐이면 처음부터 다시 고름(이미 보여 준 가게가 다시 나오면 `rememberShown`이 비우고 다시 셈).
 
-8. **휴대폰에서 버튼이 글자보다 커 보이던 것 줄이기** (사용자 피드백, 끝남)
-   - 보이는 크기: 필터 칩 36px, 추천 기준 칩 32px, 추천 상자 단추 40px(폭 채우기 뺌), 아래 검색 칸 44px. 누르는 곳은 투명 `::after`로 44px 유지.
-   - 확인: 측정 스크립트가 칩·단추 가운데에서 위아래로 `elementFromPoint`를 찍어 누를 수 있는 높이를 잼(가려지지 않게 `scrollIntoView` 먼저).
+### 위치 칸 (`index.html`, `js/nearby.js`, `js/nearby-location.js`)
+- '주변 ○○ 식당 추천' 단추는 없앰(하는 일이 없었음). 위치 칸을 눌러 장소를 고르면 바로 추천.
+- 현재 위치 단추는 위치 칸 안 오른쪽 아이콘(`.nearby-locate`). 현재 위치로 찾으면 카카오 `coord2Address`로 도로명 주소를 위치 칸에 넣고, 결과는 계속 '현재 위치에서 도보 …'(`pickedOrigin.label`='현재 위치', 칸 글자 비교는 `inputText`).
+- 찾는 동안은 결과 자리에 '현재 위치 확인 중…'·'식당 찾는 중…'. `busy` 플래그로 위치 칸·단추를 잠금.
 
-9. **'현재 위치로 추천받기' + 현재 위치 주소를 위치 칸에** (사용자 요청, 끝남)
-   - 메뉴 추천 화면만 바꿈(공무원 맛집의 '현재 위치로 찾기'는 그대로).
-   - `addressOf()` (`js/nearby-location.js`): 카카오 `Geocoder.coord2Address`로 도로명 주소(없으면 지번). 식당 찾기를 기다리게 하지 않고 따로 돌림. 그사이 사용자가 위치 칸을 바꿨으면 덮어쓰지 않음.
-   - 주소를 넣으면서 `pickedOrigin`도 그 좌표로 둬서, 그 칸으로 다시 찾으면 주소→좌표를 다시 찾지 않음(Nominatim 안 부름). 결과는 다시 찾아도 '현재 위치에서 도보…'로 고정(사용자 요청). `pickedOrigin`의 `label`은 '현재 위치', 위치 칸 글자와 맞춰 보는 건 `inputText`.
-   - 확인: Playwright로 카카오 SDK를 가짜로 바꿔(`dapi.kakao.com`) 확인. route 는 나중에 등록한 게 먼저라 catch-all 다음에 등록해야 함.
+### 회원 (`account.html`, `js/account.js`, `js/member.js`, `20261027130000_member_places.sql`)
+- 탭 세 번째가 '내 계정'(예전 '로그인'). 로그인·회원가입(비밀번호 8자 이상, 확인 메일을 쓰는 설정이면 메일 안내), 즐겨찾기·최근 본 가게 목록, 로그아웃, 탈퇴(`delete_my_account` rpc, 관리자 계정은 막음).
+- 관리자는 같은 로그인. 관리자면 내 계정에 '관리자 화면' 링크. `admin.html`은 일반 회원이 와도 로그아웃시키지 않고 안내만.
+- 즐겨찾기 별: 추천 상자엔 늘, 목록엔 로그인한 회원에게만. 로그인 안 했으면 로그인 안내 창.
+- 최근 본 가게: 가게 이름(가게 페이지)·길찾기·지도를 열 때 `recent_places`에 upsert, 회원마다 30곳만 남김(트리거).
+- 가게는 places 번호가 아니라 이름·좌표로 기억(매달 places를 새로 채워 번호가 바뀌어서).
 
-10. **'주변 ○○ 식당 추천' 단추 없앰** (사용자 요청, 끝남)
-   - 장소를 고르면 바로 추천하고, 메뉴·추천 기준을 바꾸면 같은 위치로 다시 찾아서 단추가 하는 일이 없었음.
-   - 위치 칸이 찾기 노릇: 돋보기 아이콘, 문구 '동네·역 검색 (예: 강남역)'. 위치 칸으로 찾는 동안은 결과 자리에 '식당 찾는 중…'. `js/nearby.js`는 `button` 대신 `busy` 플래그.
-   - 카카오를 못 불러와 위치 칸에 직접 적는 방식이 되면 Enter(휴대폰 키보드 '검색')로 찾음.
+### 보안
+- `20261027120000_anon_write_limits.sql`: 가게 문제 알림 같은 가게 하루 3번·전체 한 시간 300번, 투표 한 시간 300개, 표 투표당 200표. 세는 함수는 security definer(익명이 못 읽는 줄도 세야 해서), rpc로는 못 부르게 revoke.
+- supabase-js `@2.117.3`, actions `checkout`·`setup-node`·`upload-artifact`는 커밋 SHA로 고정.
+- 다섯 화면에 CSP. 스크립트는 self·jsdelivr·카카오(`dapi.kakao.com`, `*.daumcdn.net`, `*.kakao.com`)·구글 지도만.
 
-## 정한 것과 이유
+### 휴대폰 화면 (`css/style.css` 맨 끝 `@media (max-width: 480px)`)
+- 입력칸 16px(iOS 확대 방지), 보이는 칩·단추는 작게(필터 36px, 추천 기준 32px, 카드 단추 40px)·누르는 곳은 투명 `::after`로 44px.
+- '다시 추천받기' 아래 줄에 메뉴·가게 검색 칸(44px).
 
-- **오메추 평점** = 베이즈 평균 `(리뷰수 × 구글평점 + 100 × 4.0) / (리뷰수 + 100)`.
-  리뷰가 적을수록 4.0 쪽으로 끌려가요. 리뷰 100개면 구글 평점과 4.0의 딱 중간, 1,000개면 구글 평점에 거의 가까워요.
-  - 리뷰 **10개 미만**은 `-`로 보이고 4.0으로 계산(`MIN_REVIEWS`). 처음엔 100개였는데 사용자가 2026-10-27에 10개로 바꿈.
-    베이즈 평균의 100(`PRIOR_REVIEWS`)과는 별개 값이에요. 리뷰 12개 5.0은 오메추 평점 4.1 정도라 고평점 소수 리뷰 가게가 튀지 않아요.
-- **평점 우선**: 후보 중 가까운 10곳의 오메추 평점을 보고, 1등과 0.1 이내인 곳(최대 3곳) 중 하나를 무작위로. 다른 가까운 곳 목록도 오메추 평점 순.
-- **거리 우선**: 예전처럼 가까운 3곳 중 무작위, 목록은 가까운 순. 평점은 표시만 함.
-- 거리 우선에서도 평점은 표시하려고 구글에 물어봄(호출 수는 평점 우선과 비슷).
-- 고른 순서는 이 기기에 기억(`localStorage`의 `omechu.recommendOrder`).
-- 구글 키가 없으면 순서 칩을 숨김(고를 의미가 없음).
-- 가게 검색·메뉴 검색 목록(최대 30곳)에는 평점을 안 붙임(구글 호출 비용).
+## 테스트 구조
 
-## 검증 방법
+- `tests/e2e/fixtures.js`: 사이트 파일을 `https://app.test`로 내보내고, Supabase(로그인·표를 localStorage에 흉내)·구글·카카오를 가짜로. 그 밖의 바깥 요청은 막음. `Math.random = () => 0`으로 결과 고정. 화면 오류·CSP 위반이 있으면 실패.
+  - 가짜 가게(`PLACES`): 가까운(구글 없음)·닫힌(4.9, 영업 종료)·폐업·조금(5.0, 리뷰 12)·둘째·셋째·인기(4.7, 리뷰 1,500).
+  - 위치 권한을 줘서 추천을 누르면 바로 현재 위치로 찾음. `googleKey: false` 옵션이면 키 없는 상태.
+- `tests/e2e/*.spec.js`: 추천(평점·거리·다른 가게·영업 상태·위치 칸), 회원(가입·즐겨찾기·최근 본 가게·탈퇴·관리자 안내), 휴대폰(누르는 높이 43px 이상, 입력칸 16px).
+- `tests/db/run.sh`: 빈 DB에 `supabase-stub.sql`(역할·auth.users·auth.uid()·PostGIS) → 모든 마이그레이션 → `*.test.sql`. 테스트는 `begin … rollback`, 실패는 `raise exception 'FAIL: …'`.
+- 테스트가 정말 잡는지 숫자를 일부러 바꿔 실패하는 것도 확인함(오메추 평점 기준, 문 닫은 가게 거르기, 도배 제한, 최근 30곳).
 
-이 환경은 외부 접속이 막혀 있어 아래처럼 가짜 응답으로 확인했어요. 터미널에서 실제 키로 확인할 수 있으면 그게 더 좋아요.
+## 남은 일 / 생각해 볼 것
 
-- Playwright로 `http://app.test/`를 열고 `page.route`로
-  - `cdn.jsdelivr.net/.../supabase-js` → `rpc()`가 가짜 가게 줄을 돌려주는 `createClient`
-  - `maps.googleapis.com` → `google.maps.importLibrary("places")`가 가짜 `Place.searchByText`를 돌려주고 `callback`을 부르는 스크립트
-  - `place-rating.js`는 `GOOGLE_MAPS_KEY`를 `"TEST"`로 바꿔 내보냄
-  - 한글이 깨지지 않게 `content-type`에 `charset=utf-8`을 꼭 붙일 것
-- 페이지에서 `import('/js/nearby-restaurant-search.js')`로 `searchRestaurants`를 30번 돌려 고른 가게 분포를 보고, 렌더러로 그려 스크린샷.
-- 화면 전체: `index.html`을 `https://app.test/`로 열고 위치 권한(geolocation)을 줘서 자동으로 찾게 함. 가짜 `rpc`는 `p_terms[0]`을 붙인 이름으로 가게를 돌려줘야 어떤 메뉴가 나와도 맞음. 가짜 `from()`은 빈 목록 → 기본 메뉴 목록(`data/menus.json`) 사용.
-- 확인한 것: 평점 우선이 리뷰 많은 고평점(4.7·1,200 / 4.6·3,000)을 고르고 리뷰 120개 4.9는 뺌, 거리 우선은 가까운 3곳 중, 칩을 바꾸면 다시 고름, 새로고침해도 기억, 가게 검색에서는 칩 숨김, 키 없으면 평점 표시 없음.
-
-## 남은 일 / 확인할 것
-
-- 실제 구글 키로 이름·위치 맞추기가 잘 되는지(체인점 '○○점' 이름, 영어 이름 가게).
-- 구글 요금: 평점 필드가 든 Text Search는 비싼 등급. 사용량 보고 `RATED_CANDIDATES`(10)를 줄일지.
-- PR은 사용자가 요청할 때만.
+- 구글 요금: 평점·영업시간 필드가 든 Text Search는 비싼 등급. 사용량 보고 `RATED_CANDIDATES`(10)를 줄일지.
+- 도배 제한은 전체 한도라, 누가 한도를 다 쓰면 그 한 시간 동안 다른 사람도 못 넣음. 문제가 되면 IP별 한도(요청 헤더) 검토.
+- 공무원 맛집 화면에도 즐겨찾기 별을 붙일지.

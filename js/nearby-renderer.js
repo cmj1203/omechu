@@ -1,5 +1,6 @@
+import { favoriteIds, placeId, recordView, setFavorite } from "./member.js";
 import { placeNameLink } from "./place-page.js";
-import { MIN_REVIEWS, omechuRating } from "./place-rating.js";
+import { MIN_REVIEWS, knownClosed, omechuRating } from "./place-rating.js";
 import { getSupabase } from "./supabase.js";
 
 // 경고(⚠) 단추로 알린 가게는 이 기기에 기억해 두고, 다음에 그려도 '알렸어요'로 꺼진 채 보여 줘요.
@@ -14,6 +15,7 @@ const REPORT_REASONS = [
 const REPORT_LABEL = "가게 문제 알리기";
 let reportDialog = null;
 let placeDialog = null;
+let loginDialog = null;
 
 export function similarLabel(menu) {
 	if (menu.kinds.includes("식사")) {
@@ -26,15 +28,22 @@ export function similarLabel(menu) {
 }
 
 // 아래에 다른 가게 목록이 있으면 그 제목줄의 경고 단추로 이 가게도 알리니까, 상자에는 단추를 두지 않아요.
-export function restaurantCard(restaurant, origin, withReport = true) {
+// onAnother 가 있으면 가게 이름 오른쪽에 '다른 가게' 단추를 두고, 누르면 onAnother 를 불러요.
+export function restaurantCard(restaurant, origin, withReport = true, onAnother = null) {
 	const card = document.createElement("div");
 	card.className = "restaurant-card";
 	card.append(
 		paragraph("restaurant-label", "추천 식당" + (restaurant.menuName ? " · " + restaurant.menuName : "")),
 	);
+	const head = document.createElement("div");
+	head.className = "restaurant-head";
 	const name = paragraph("restaurant-name", "");
-	name.append(placeNameLink(restaurant));
-	card.append(name);
+	name.append(placeNameLink(restaurant), favoriteButton(restaurant));
+	head.append(name);
+	if (onAnother) {
+		head.append(anotherButton(onAnother));
+	}
+	card.append(head);
 	if (restaurant.officialVisits) {
 		card.append(officialBadge(restaurant.officialVisits));
 	}
@@ -43,6 +52,13 @@ export function restaurantCard(restaurant, origin, withReport = true) {
 		rating.title = ratingTitle(restaurant.googleRating);
 		if (omechuRating(restaurant.googleRating) !== null) {
 			rating.append(phrase(" · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
+		}
+		const open = openText(restaurant.googleRating);
+		if (open) {
+			const status = document.createElement("span");
+			status.className = knownClosed(restaurant.googleRating) ? "open-status closed" : "open-status";
+			status.textContent = open;
+			rating.append(" · ", status);
 		}
 		card.append(rating);
 	}
@@ -56,11 +72,13 @@ export function restaurantCard(restaurant, origin, withReport = true) {
 	}
 	const links = document.createElement("p");
 	links.className = "restaurant-links";
-	links.append(
-		link("카카오맵 길찾기 ↗", kakaoRouteUrl(origin, restaurant)),
-		link("지도에서 보기 ↗", kakaoMapUrl(restaurant)),
-		shareButton(restaurant, origin),
-	);
+	const route = link("카카오맵 길찾기 ↗", kakaoRouteUrl(origin, restaurant));
+	const map = link("지도에서 보기 ↗", kakaoMapUrl(restaurant));
+	// 길찾기·지도를 열면 회원의 최근 본 가게에 남겨요(가게 이름을 눌러 가게 페이지를 열 때도 남아요).
+	for (const anchor of [route, map]) {
+		anchor.addEventListener("click", () => recordView(restaurant));
+	}
+	links.append(route, map, shareButton(restaurant, origin));
 	if (withReport) {
 		links.append(reportButton(restaurant));
 	}
@@ -93,11 +111,98 @@ export function othersList(restaurants, title, reportable = restaurants) {
 		if (restaurant.googleRating !== undefined) {
 			item.append(ratingTag(restaurant.googleRating));
 		}
+		// 목록에는 문 닫은 것만 알려요(영업 중은 당연한 것으로 보고 줄을 짧게 둬요).
+		if (knownClosed(restaurant.googleRating)) {
+			const closed = document.createElement("em");
+			closed.className = "open-tag";
+			closed.textContent = openText(restaurant.googleRating);
+			item.append(closed);
+		}
 		item.append(time);
 		list.append(item);
 	}
 	wrapper.append(list);
+	addListFavorites(list, restaurants);
 	return wrapper;
+}
+
+// 목록의 즐겨찾기 별은 로그인한 회원에게만 보여요(로그인 안 했으면 별이 줄마다 있어도 쓸 수 없어서요).
+async function addListFavorites(list, restaurants) {
+	if (!(await favoriteIds())) {
+		return;
+	}
+	list.querySelectorAll(":scope > li").forEach((item, index) => {
+		item.querySelector(".place-name-link").after(favoriteButton(restaurants[index]));
+	});
+}
+
+// 지금 영업 상태. 모르면 빈 글자예요.
+function openText(found) {
+	if (found?.closedForGood) {
+		return "폐업";
+	}
+	if (found?.openNow === true) {
+		return "영업 중";
+	}
+	return found?.openNow === false ? "영업 종료" : "";
+}
+
+// 즐겨찾기 별. 로그인하지 않았으면 누를 때 로그인 안내 창을 열어요.
+function favoriteButton(place) {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "favorite-button";
+	const show = (on) => {
+		button.setAttribute("aria-pressed", String(on));
+		button.setAttribute("aria-label", on ? "즐겨찾기에서 빼기" : "즐겨찾기에 넣기");
+		button.title = button.getAttribute("aria-label");
+	};
+	show(false);
+	favoriteIds().then((ids) => show(Boolean(ids?.has(placeId(place)))));
+	button.addEventListener("click", async () => {
+		const on = button.getAttribute("aria-pressed") !== "true";
+		button.disabled = true;
+		try {
+			if (await setFavorite(place, on) === "signed-out") {
+				showLoginDialog();
+			} else {
+				show(on);
+			}
+		} catch (error) {
+			console.warn("즐겨찾기를 바꾸지 못했어요.", error);
+			button.title = "즐겨찾기를 바꾸지 못했어요";
+		} finally {
+			button.disabled = false;
+		}
+	});
+	return button;
+}
+
+function anotherButton(onAnother) {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "another-button";
+	button.textContent = "다른 가게";
+	button.addEventListener("click", () => {
+		button.disabled = true;
+		onAnother();
+	});
+	return button;
+}
+
+function showLoginDialog() {
+	if (!loginDialog) {
+		loginDialog = createReportDialog("loginDialogTitle", []);
+		loginDialog.querySelector(".report-dialog-title").textContent = "즐겨찾기는 로그인하면 쓸 수 있어요";
+		const go = document.createElement("a");
+		go.className = "login-dialog-link";
+		go.href = "account.html";
+		go.textContent = "로그인·회원가입";
+		loginDialog.querySelector(".report-reasons").append(go);
+		loginDialog.querySelector("form > .text-button").textContent = "닫기";
+	}
+	loginDialog.showModal();
+	loginDialog.querySelector(".report-dialog-title").focus();
 }
 
 // 화면에는 구글 평점·리뷰 수를 그대로 보여 줘요. 리뷰 수를 반영한 오메추 평점은 추천 순서를 정할 때만 써요.
@@ -115,7 +220,7 @@ function ratingTag(found) {
 }
 
 function ratingTitle(found) {
-	if (!found) {
+	if (!found || typeof found.rating !== "number") {
 		return "구글 평점이 없어요";
 	}
 	if (omechuRating(found) === null) {

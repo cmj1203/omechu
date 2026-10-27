@@ -16,7 +16,7 @@
 	<nav class="tabs official-tabs">
 		<a href="index.html" class="official-tab-link active" aria-current="page">메뉴 추천</a>
 		<a href="official.html" class="official-tab-link">공무원 맛집</a>
-		<a href="admin.html" class="official-tab-link">로그인</a>
+		<a href="account.html" class="official-tab-link">내 계정</a>
 	</nav>
 	<main class="container">
 		<h1 class="headline">오늘 뭐 먹지? 추천&nbsp;버튼을 눌러보세요!</h1>
@@ -51,8 +51,8 @@
 			<div id="nearby" class="nearby" hidden>
 				<div class="nearby-form">
 					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="동네·역 검색 (예: 강남역)" enterkeyhint="search" readonly>
+					<button type="button" id="nearbyCurrentBtn" class="nearby-locate" aria-label="현재 위치로 추천받기" title="현재 위치로 추천받기"></button>
 				</div>
-				<button type="button" id="nearbyCurrentBtn" class="nearby-search-button">현재 위치로 추천받기</button>
 				<div id="nearbyOrder" class="nearby-order" role="radiogroup" aria-labelledby="nearbyOrderLabel" hidden>
 					<span id="nearbyOrderLabel" class="nearby-order-label">추천 기준</span>
 					<div class="options">

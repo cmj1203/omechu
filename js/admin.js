@@ -133,10 +133,10 @@ async function openManager(user) {
 		.select("user_id")
 		.eq("user_id", user.id)
 		.maybeSingle();
+	// 일반 회원도 같은 로그인을 써서, 관리자가 아니면 로그아웃시키지 않고 내 계정으로 안내해요.
 	if (error || !adminRow) {
-		await supabase.auth.signOut();
-		loginForm.hidden = false;
-		setMessage(loginMessage, "관리자 권한이 없는 계정이에요.", true);
+		loginForm.hidden = true;
+		showNotice("관리자 권한이 없는 계정이에요. 즐겨찾기는 '내 계정'에서 볼 수 있어요.");
 		return;
 	}
 	loginForm.hidden = true;

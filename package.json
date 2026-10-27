@@ -1,0 +1,13 @@
+{
+  "name": "omechu",
+  "private": true,
+  "type": "module",
+  "description": "오메추 자동 테스트. 화면은 빌드 없이 돌고, 이 파일은 테스트 도구만 적어요.",
+  "scripts": {
+    "test": "playwright test",
+    "test:db": "bash tests/db/run.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

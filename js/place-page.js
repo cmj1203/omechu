@@ -1,3 +1,4 @@
+import { recordView } from "./member.js";
 import { loadKakao } from "./place-picker.js";
 
 // 상가정보 좌표는 카카오 좌표와 200m 가까이 어긋나기도 해서 300m 안에서 같은 이름을 찾아요.
@@ -17,6 +18,7 @@ export function placeNameLink(place) {
 	anchor.addEventListener("click", (event) => {
 		event.preventDefault();
 		openPlacePage(place);
+		recordView(place);
 	});
 	return anchor;
 }

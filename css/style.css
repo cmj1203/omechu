@@ -13,6 +13,7 @@
 	--accent-shadow: rgba(196, 23, 63, 0.3);
 	--note: #9a4f00;
 	--error: #c13515;
+	--open: #17803d;
 	--focus: #222222;
 	--radius-xs: 6px;
 	--radius-sm: 8px;
@@ -25,6 +26,10 @@
 	--icon-utensils: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3v6a2 2 0 0 0 4 0V3'/%3E%3Cpath d='M8 11v10'/%3E%3Cpath d='M17 21V3c-2.2 1.6-3.2 4.2-3.2 7.2V13H17'/%3E%3C/svg%3E");
 	--icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
 	--icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E");
+	--icon-locate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='7'/%3E%3Ccircle cx='12' cy='12' r='2.5'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3'/%3E%3C/svg%3E");
+	--icon-refresh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11a8 8 0 0 0-14.3-4.9L4 8'/%3E%3Cpath d='M4 3v5h5'/%3E%3Cpath d='M4 13a8 8 0 0 0 14.3 4.9L20 16'/%3E%3Cpath d='M20 21v-5h-5'/%3E%3C/svg%3E");
+	--icon-star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z'/%3E%3C/svg%3E");
+	--icon-star-filled: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z'/%3E%3C/svg%3E");
 	--icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9.5v4'/%3E%3Cpath d='M12 17.5h.01'/%3E%3C/svg%3E");
 }
 
@@ -301,7 +306,7 @@ a.text-button {
 #nearbyPlace {
 	width: 100%;
 	height: 48px;
-	padding: 0 14px 0 40px;
+	padding: 0 48px 0 40px;
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-md);
 	background: var(--canvas);
@@ -497,45 +502,50 @@ a.text-button {
 	}
 }
 
-.nearby-search-button {
-	--icon: var(--icon-pin);
-	display: inline-flex;
+/* 현재 위치 단추: 위치 칸 안쪽 오른쪽 끝의 아이콘. 누르면 지금 있는 곳으로 바로 추천해요 */
+.nearby-locate {
+	position: absolute;
+	top: 1px;
+	right: 1px;
+	display: flex;
 	align-items: center;
-	gap: 6px;
-	height: 48px;
-	padding: 0 18px;
+	justify-content: center;
+	width: 46px;
+	height: 46px;
+	padding: 0;
 	border: 0;
-	border-radius: var(--radius-md);
-	background: var(--ink);
-	color: var(--canvas);
-	font: inherit;
-	font-size: 15px;
-	font-weight: 700;
+	border-radius: 0 calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0;
+	background: transparent;
+	color: var(--ink);
 	cursor: pointer;
-	transition: background-color 0.15s ease-out, transform 0.1s ease-out;
+	transition: background-color 0.15s ease-out;
+}
+
+.nearby-locate::before {
+	content: "";
+	width: 20px;
+	height: 20px;
+	background: currentColor;
+	-webkit-mask: var(--icon-locate) center / contain no-repeat;
+	mask: var(--icon-locate) center / contain no-repeat;
 }
 
 @media (hover: hover) {
-	#nearbyCurrentBtn:hover:not(:disabled) {
+	.nearby-locate:hover:not(:disabled) {
 		background: var(--cloud);
 	}
 }
 
-.nearby-search-button:active {
-	transform: scale(0.97);
-}
-
-.nearby-search-button:focus-visible {
+.nearby-locate:focus-visible {
 	outline: 2px solid var(--focus);
-	outline-offset: 2px;
+	outline-offset: 0;
 }
 
-.nearby-search-button:disabled {
-	background: var(--ash);
+.nearby-locate:disabled {
+	color: var(--ash);
 	cursor: wait;
 }
 
-.nearby-search-button::before,
 .restaurant-label::before,
 .restaurant-walk::before {
 	content: "";
@@ -545,25 +555,6 @@ a.text-button {
 	background: currentColor;
 	-webkit-mask: var(--icon) center / contain no-repeat;
 	mask: var(--icon) center / contain no-repeat;
-}
-
-.nearby-search-button:disabled::before {
-	display: none;
-}
-
-/* 위치 칸과 같은 폭으로 바로 아래에 둬요 */
-#nearbyCurrentBtn {
-	display: flex;
-	justify-content: center;
-	width: min(100%, 300px);
-	margin: 8px auto 0;
-	border: 1px solid var(--hairline);
-	background: var(--canvas);
-	color: var(--ink);
-}
-
-#nearbyCurrentBtn:disabled {
-	color: var(--ash);
 }
 
 /* 추천 기준 칩(평점·거리): '추천 기준' 이름표 바로 옆에 작은 칩 두 개를 한 줄로 둬요.
@@ -650,6 +641,145 @@ a.text-button {
 	font-size: 22px;
 	font-weight: 800;
 	letter-spacing: -0.02em;
+}
+
+/* 추천 상자 맨 위 줄: 가게 이름·즐겨찾기 별 왼쪽, '다른 가게' 단추 오른쪽 */
+.restaurant-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.restaurant-head .restaurant-name {
+	min-width: 0;
+}
+
+.another-button {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 4px;
+	height: 36px;
+	margin-top: 2px;
+	padding: 0 12px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-full);
+	background: var(--canvas);
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: border-color 0.15s ease-out;
+}
+
+.another-button::before {
+	content: "";
+	width: 14px;
+	height: 14px;
+	background: currentColor;
+	-webkit-mask: var(--icon-refresh) center / contain no-repeat;
+	mask: var(--icon-refresh) center / contain no-repeat;
+}
+
+@media (hover: hover) {
+	.another-button:hover:not(:disabled) {
+		border-color: var(--ink);
+	}
+}
+
+.another-button:disabled {
+	color: var(--ash);
+	cursor: wait;
+}
+
+.another-button:focus-visible,
+.favorite-button:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+/* 즐겨찾기 별: 가게 이름 바로 뒤. 넣으면 채운 별 */
+.favorite-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	margin-left: 2px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--ash);
+	vertical-align: -6px;
+	cursor: pointer;
+}
+
+.favorite-button::before {
+	content: "";
+	width: 20px;
+	height: 20px;
+	background: currentColor;
+	-webkit-mask: var(--icon-star) center / contain no-repeat;
+	mask: var(--icon-star) center / contain no-repeat;
+}
+
+.favorite-button[aria-pressed="true"] {
+	color: var(--accent);
+}
+
+.favorite-button[aria-pressed="true"]::before {
+	-webkit-mask-image: var(--icon-star-filled);
+	mask-image: var(--icon-star-filled);
+}
+
+.others .favorite-button {
+	width: 28px;
+	height: 28px;
+	vertical-align: -8px;
+}
+
+.others .favorite-button::before {
+	width: 16px;
+	height: 16px;
+}
+
+/* 영업 상태: 추천 상자 평점 줄 끝 '영업 중'(초록)·'영업 종료'·'폐업'(빨강), 목록에는 닫은 것만 */
+.open-status {
+	color: var(--open);
+}
+
+.open-status.closed,
+.open-tag {
+	color: var(--error);
+}
+
+.open-tag {
+	margin-left: 6px;
+	font-size: 12px;
+	font-style: normal;
+	font-weight: 700;
+}
+
+.login-dialog-link {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 44px;
+	border-radius: var(--radius-sm);
+	background: var(--ink);
+	color: var(--canvas);
+	font-size: 15px;
+	font-weight: 700;
+	text-decoration: none;
+}
+
+.login-dialog-link:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
 }
 
 .place-name-link {
@@ -1560,7 +1690,6 @@ input[type="search"]::-webkit-search-cancel-button {
 
 @media (prefers-reduced-motion: reduce) {
 	.options span:active,
-	.nearby-search-button:active,
 	.primary:active {
 		transform: none;
 	}
@@ -1570,6 +1699,85 @@ input[type="search"]::-webkit-search-cancel-button {
 #nearbyResult .restaurant-links button:focus-visible {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
+}
+
+/* 내 계정: 로그인·회원가입 바꾸기 탭, 즐겨찾기·최근 본 가게 목록 */
+.auth-switch {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	padding: 4px;
+	border-radius: var(--radius-sm);
+	background: var(--cloud);
+}
+
+.auth-switch button {
+	height: 40px;
+	border: 0;
+	border-radius: var(--radius-xs);
+	background: transparent;
+	color: var(--ash);
+	font: inherit;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.auth-switch button[aria-selected="true"] {
+	background: var(--canvas);
+	color: var(--ink);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.auth-switch button:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+.auth-form {
+	display: grid;
+	gap: 12px;
+}
+
+.auth-form[hidden] {
+	display: none;
+}
+
+#loginMessage:empty,
+#signupMessage:empty {
+	display: none;
+}
+
+.member-actions {
+	display: flex;
+	flex: none;
+	gap: 6px;
+}
+
+a.small {
+	color: var(--ink);
+	text-decoration: none;
+}
+
+.panel-count {
+	color: var(--ash);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.account-page .place-name {
+	color: var(--ink);
+	text-decoration: none;
+}
+
+@media (hover: hover) {
+	.account-page .place-name:hover {
+		text-decoration: underline;
+	}
+}
+
+.account-delete {
+	margin: 0;
+	text-align: center;
 }
 
 /* 공무원 맛집 */
@@ -1995,6 +2203,27 @@ input[type="search"]::-webkit-search-cancel-button {
 		inset: -3px -1px;
 	}
 
+	/* '다른 가게'(보임 36px)와 즐겨찾기 별(보임 32px·목록 28px)도 누르는 곳만 44px로 */
+	.another-button,
+	.favorite-button {
+		position: relative;
+	}
+
+	.another-button::after,
+	.favorite-button::after {
+		content: "";
+		position: absolute;
+		inset: -5px -1px;
+	}
+
+	.favorite-button::after {
+		inset: -6px;
+	}
+
+	.others .favorite-button::after {
+		inset: -8px -4px;
+	}
+
 	/* 글줄 안의 가게 이름·출처 링크는 줄 높이를 바꾸지 않고 누르는 곳만 위아래로 넓혀요 */
 	.place-name-link,
 	.official-source-link,
@@ -2005,6 +2234,7 @@ input[type="search"]::-webkit-search-cancel-button {
 
 	.menu-tag,
 	.rating-tag,
+	.open-tag,
 	#nearbyResult .official-badge,
 	#nearbyResult .others .official-badge,
 	.official-chip,

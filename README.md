@@ -80,7 +80,18 @@ python3 -m http.server 8000
 
 - 그냥 열면 이 사이트가 쓰는 DB에 연결돼서 메뉴와 식당이 바로 나와요. 브라우저에 들어 있는 키는 읽기만 되는 공개 키라 괜찮아요.
 - 코드를 고친 뒤에는 브라우저를 새로고침하면 바로 보여요.
-- 관리자 화면(`admin.html`)은 등록된 관리자 계정만 쓸 수 있어요.
+- 관리자 화면(`admin.html`)은 등록된 관리자 계정만 쓸 수 있어요. 일반 회원은 '내 계정'(`account.html`)에서 가입·로그인하고 즐겨찾기·최근 본 가게를 봐요.
+
+## 🧪 테스트
+
+```
+npm ci                                       # 처음 한 번 (Playwright)
+npx playwright install chromium              # 처음 한 번 (브라우저)
+npm test                                     # 화면 테스트: 바깥 서비스(Supabase·구글·카카오)는 가짜라 인터넷 없이 돌아요
+PGHOST=localhost PGUSER=postgres PGPASSWORD=… npm run test:db   # DB 테스트: PostGIS 있는 Postgres에 모든 마이그레이션 + SQL 테스트
+```
+
+GitHub Actions(`.github/workflows/test.yml`)가 푸시·PR마다 두 테스트를 돌려요.
 
 ## 🔄 식당 정보 새로고침
 
@@ -146,6 +157,10 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 | `js/nearby-renderer.js` | 추천 카드, 다른 가까운 곳 목록, 지도 링크 그리기 |
 | `js/place-rating.js` | 구글 평점 · 리뷰 수 찾기, 리뷰 수를 반영한 오메추 평점 (구글 지도 JavaScript 키) |
 | `admin.html`, `js/admin.js` | 관리자 로그인과 메뉴 · 숨긴 가게 관리 |
+| `account.html`, `js/account.js` | 내 계정: 일반 회원 가입 · 로그인, 즐겨찾기 · 최근 본 가게, 탈퇴 |
+| `js/member.js` | 회원 즐겨찾기 · 최근 본 가게 저장 (추천 화면에서 씀) |
+| `tests/e2e/`, `playwright.config.js` | 화면 테스트 (가짜 Supabase · 구글 · 카카오) |
+| `tests/db/` | DB 테스트 (Supabase 흉내 + 마이그레이션 + SQL) |
 | `js/supabase.js` | Supabase 주소와 공개(publishable) 키 |
 | `css/style.css` | 화면 스타일 |
 | `supabase/migrations/` | DB 표, 권한(RLS), 기본 메뉴, 식당 검색 함수 |
@@ -258,6 +273,11 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 8. 추천 식당을 평점으로 고르려면 [Google Cloud 콘솔](https://console.cloud.google.com)에서 **Maps JavaScript API**와 **Places API (New)**를 켜고 API 키를 만들어 `js/place-rating.js`의 `GOOGLE_MAPS_KEY`에 넣어요. 브라우저에 보이는 키라서 키 제한에서 웹사이트(HTTP 리퍼러)를 이 사이트 주소로, API를 그 두 개로 묶어 둬요. 추천 한 번에 가까운 가게 10곳 정도를 찾고(같은 가게는 화면을 연 동안 다시 찾지 않아요), 평점이 있는 장소 검색이라 무료 한도를 넘으면 요금이 나가요. 키를 비워 두면 평점 없이 가까운 순으로 고르고 '평점 우선·거리 우선' 칩도 숨겨요.
    - 화면에는 구글 평점과 리뷰 수를 그대로 보여 주고, 추천 순서는 리뷰 수를 반영한 오메추 평점으로 정해요. 오메추 평점 = (리뷰 수 × 구글 평점 + 100 × 4.0) ÷ (리뷰 수 + 100). 리뷰가 적을수록 4.0 쪽으로 당겨져서, 리뷰 120개 4.9(4.5)보다 리뷰 3,000개 4.6(4.6)이 높아요. 리뷰가 10개 미만이면 '-'로 보이고 4.0으로 셈해요. 10개 이상이면 적어도 오메추 평점에 들어가지만, 위 식 때문에 리뷰 12개 5.0은 4.1 정도로만 쳐요.
    - 평점 우선(기본): 가까운 10곳 중 오메추 평점이 1등과 0.1점 안쪽인 곳(최대 3곳)에서 하나. 거리 우선: 가까운 3곳 중 하나.
+   - 같은 장소 검색으로 영업 상태(영업 중·영업 종료·임시 휴업·폐업)도 받아서, 지금 문 닫은 가게는 다른 가게가 없을 때만 추천하고 목록 맨 뒤에 '영업 종료'·'폐업'으로 보여 줘요.
+   - **키에 사용량 한도를 꼭 걸어 두세요.** Google Cloud 콘솔 → API 및 서비스 → Places API (New) → 할당량에서 하루 요청 수 상한을 정하면, 누가 키를 가져다 써도 요금이 그 이상 나가지 않아요.
+9. 일반 회원 가입을 쓰려면 Supabase 대시보드 → Authentication → Sign In / Providers 에서 **Allow new users to sign up**과 Email을 켜요. URL Configuration 의 Redirect URLs 에 `https://<내 사이트>/**`를 넣어야 가입 확인 메일 링크가 '내 계정'으로 돌아와요.
+   - 가입 확인 메일(Confirm email)을 켜 두면 메일 링크를 눌러야 가입이 끝나요. Supabase 기본 메일은 한 시간에 몇 통만 보내서, 사람이 많아지면 SMTP를 따로 붙이거나 확인 메일을 꺼요.
+   - 즐겨찾기·최근 본 가게는 `favorite_places`·`recent_places` 표에 회원별로 저장되고, 자기 것만 읽고 쓸 수 있어요(RLS). 탈퇴(`delete_my_account`)하면 같이 지워져요.
 
 새 표나 권한은 `supabase/migrations/`에 SQL 파일을 추가하고 `supabase db push` 하면 돼요.
 

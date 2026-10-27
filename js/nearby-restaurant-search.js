@@ -1,7 +1,7 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
 import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, isOtherMenuPlace, mainCategories, mainTerms, nameForMenu, searchTerms, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
-import { PRIOR_RATING, lookupRatings, omechuRating } from "./place-rating.js";
+import { PRIOR_RATING, knownClosed, lookupRatings, omechuRating } from "./place-rating.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
 // 평점 우선은 가까운 10곳의 오메추 평점을 보고 1등과 0.1점 안쪽인 곳(최대 3곳) 중 하나를 골라요.
@@ -15,14 +15,28 @@ const HANGUL = /[가-힣]/;
 const ALL_KINDS = ["식사", "간식", "술"];
 
 // order 는 "rating"(평점 우선, 기본) 또는 "distance"(거리 우선)예요. 거리 우선도 평점은 표시하려고 물어봐요.
-export async function searchRestaurants(menu, filterMenus, origin, order = "rating") {
+// shown 은 '다른 가게'로 이미 보여 준 가게(placeKey)예요. 그 가게들은 빼고 고르고, 다 보여 줬으면 처음부터 다시 골라요.
+export async function searchRestaurants(menu, filterMenus, origin, order = "rating", shown = new Set()) {
 	const found = await searchCandidates(menu, filterMenus, origin);
 	const { forMenu, forFilters, ...result } = found;
 	const byRating = order === "rating";
-	const chosen = await choose(menu, filterMenus, forMenu, forFilters, byRating ? pickTopRated : pickNearRandom);
+	const picker = byRating ? pickTopRated : pickNearRandom;
+	// 남은 가게가 모두 지금 문 닫은 곳이면, 문 닫은 곳을 추천하지 않고 처음부터 다시 골라요.
+	const pickFrom = async (places) => {
+		const fresh = places.filter((place) => !shown.has(placeKey(place)));
+		if (fresh.length === 0 || fresh.length === places.length) {
+			return picker(places);
+		}
+		const pick = await picker(fresh);
+		return knownClosed(pick.googleRating) ? picker(places) : pick;
+	};
+	const chosen = await choose(menu, filterMenus, forMenu, forFilters, pickFrom);
 	const [pick] = chosen.pick ? await withRatings([chosen.pick]) : [null];
 	const others = await withRatings(chosen.others);
-	return { ...result, ...chosen, pick, others: byRating ? others.sort(byOmechuRating) : others };
+	// 다른 가까운 곳 목록은 평점 우선이면 오메추 평점 순, 거리 우선이면 가까운 순이고, 지금 문 닫은 가게는 맨 뒤로 보내요.
+	const ordered = byRating ? others.sort(byOmechuRating) : others;
+	const closed = ordered.filter((place) => knownClosed(place.googleRating));
+	return { ...result, ...chosen, pick, others: [...ordered.filter((place) => !closed.includes(place)), ...closed] };
 }
 
 // 어느 반경의 어떤 가게들로 고를지 정해요. 여기서는 평점을 묻지 않고, 정한 가게들로만 평점을 봐요.
@@ -170,18 +184,29 @@ function pickNearest(places) {
 	return places[0];
 }
 
-// 거리 우선: 가까운 3곳 중 하나를 골라요.
-function pickNearRandom(places) {
-	return places[Math.floor(Math.random() * Math.min(RECOMMEND_FROM_NEAREST, places.length))];
+// 거리 우선: 가까운 3곳 중 하나를 골라요. 지금 문 닫은 가게는 다른 가게가 없을 때만 골라요.
+async function pickNearRandom(places) {
+	const nearest = openFirst(await withRatings(nearestOf(places))).slice(0, RECOMMEND_FROM_NEAREST);
+	return nearest[Math.floor(Math.random() * nearest.length)];
 }
 
 // 평점 우선: 가까운 10곳 중 오메추 평점이 1등과 0.1점 안쪽인 곳(최대 3곳)에서 하나를 골라요.
+// 지금 문 닫은 가게는 다른 가게가 없을 때만 골라요.
 async function pickTopRated(places) {
-	const nearest = [...places].sort((a, b) => a.distance - b.distance).slice(0, RATED_CANDIDATES);
-	const rated = (await withRatings(nearest)).sort(byOmechuRating);
+	const rated = openFirst(await withRatings(nearestOf(places))).sort(byOmechuRating);
 	const top = ratingScore(rated[0]);
 	const best = rated.filter((place) => ratingScore(place) >= top - TOP_RATING_MARGIN).slice(0, RECOMMEND_FROM_NEAREST);
 	return best[Math.floor(Math.random() * best.length)];
+}
+
+function nearestOf(places) {
+	return [...places].sort((a, b) => a.distance - b.distance).slice(0, RATED_CANDIDATES);
+}
+
+// 영업 중이거나 영업시간을 모르는 가게만 남겨요. 모두 문 닫았으면 그대로 둬요(가까운 순 유지).
+function openFirst(places) {
+	const open = places.filter((place) => !knownClosed(place.googleRating));
+	return open.length > 0 ? open : places;
 }
 
 // 오메추 평점이 높은 순, 같으면 가까운 순
@@ -245,6 +270,6 @@ function metersBetween(a, b) {
 	return Math.hypot(dx, dy);
 }
 
-function placeKey(place) {
+export function placeKey(place) {
 	return place.name + "|" + place.lat.toFixed(5) + "|" + place.lng.toFixed(5);
 }

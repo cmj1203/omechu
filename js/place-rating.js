@@ -19,7 +19,9 @@ export const RATINGS_ENABLED = Boolean(GOOGLE_MAPS_KEY);
 let sdk = null;
 const cache = new Map();
 
-// 가게마다 { rating, reviews } 를, 구글에 없거나 평점이 없으면 null 을, 찾지 못했으면(키 없음·오류·시간 초과) undefined 를 돌려줘요.
+// 가게마다 { rating, reviews, openNow, closedForGood } 를, 구글에서 같은 가게를 못 찾으면 null 을,
+// 묻지 못했으면(키 없음·오류·시간 초과) undefined 를 돌려줘요. rating 은 평점이 없으면 null,
+// openNow 는 지금 영업 중이면 true, 아니면 false, 영업시간을 모르면 undefined 예요.
 // 같은 가게는 이 화면을 연 동안 다시 묻지 않아요(실패한 가게는 다음에 다시 물어요).
 export function lookupRatings(places) {
 	return Promise.all(places.map((place) => lookupRating(place)));
@@ -42,7 +44,7 @@ function lookupRating(place) {
 
 // 리뷰가 MIN_REVIEWS 개 이상일 때만 오메추 평점을, 아니면 null 을 돌려줘요.
 export function omechuRating(found) {
-	if (!found || found.reviews < MIN_REVIEWS) {
+	if (!found || typeof found.rating !== "number" || found.reviews < MIN_REVIEWS) {
 		return null;
 	}
 	return (found.reviews * found.rating + PRIOR_REVIEWS * PRIOR_RATING) / (found.reviews + PRIOR_REVIEWS);
@@ -52,7 +54,7 @@ async function findRating(place) {
 	const { Place } = await loadPlaces();
 	const { places } = await Place.searchByText({
 		textQuery: place.name,
-		fields: ["displayName", "location", "rating", "userRatingCount"],
+		fields: ["displayName", "location", "rating", "userRatingCount", "businessStatus", "regularOpeningHours", "utcOffsetMinutes"],
 		locationBias: { center: { lat: place.lat, lng: place.lng }, radius: MATCH_RADIUS_METERS },
 		maxResultCount: 5,
 	});
@@ -62,10 +64,33 @@ async function findRating(place) {
 		return other && (other.includes(name) || name.includes(other))
 			&& metersBetween(place, { lat: candidate.location.lat(), lng: candidate.location.lng() }) <= MATCH_RADIUS_METERS;
 	});
-	if (!same || typeof same.rating !== "number") {
+	if (!same) {
 		return null;
 	}
-	return { rating: same.rating, reviews: same.userRatingCount ?? 0 };
+	const closedForGood = same.businessStatus === "CLOSED_PERMANENTLY";
+	return {
+		rating: typeof same.rating === "number" ? same.rating : null,
+		reviews: same.userRatingCount ?? 0,
+		openNow: closedForGood ? false : await openNow(same),
+		closedForGood,
+	};
+}
+
+// 영업시간이 없거나 모르면 undefined. 임시 휴업도 문 닫은 것으로 봐요.
+async function openNow(place) {
+	if (place.businessStatus === "CLOSED_TEMPORARILY") {
+		return false;
+	}
+	try {
+		return await place.isOpen();
+	} catch {
+		return undefined;
+	}
+}
+
+// 지금 문을 닫았거나(영업시간 밖·임시 휴업·폐업) 그렇게 알려진 가게면 true
+export function knownClosed(found) {
+	return found?.openNow === false;
 }
 
 function loadPlaces() {

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- 불러올 수 있는 스크립트를 이 사이트·jsdelivr(Supabase·글꼴)·카카오 지도·구글 지도로 묶어요. 새 외부 스크립트를 쓰면 여기에 더해야 해요 -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://dapi.kakao.com https://*.daumcdn.net https://*.kakao.com https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+	<title>오메추 - 내 계정</title>
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+	<link rel="stylesheet" href="css/style.css">
+	<script type="module" src="js/account.js"></script>
+</head>
+<body>
+	<nav class="tabs official-tabs">
+		<a href="index.html" class="official-tab-link">메뉴 추천</a>
+		<a href="official.html" class="official-tab-link">공무원 맛집</a>
+		<a href="account.html" class="official-tab-link active" aria-current="page">내 계정</a>
+	</nav>
+	<main class="container admin-page account-page">
+		<p id="accountNotice" class="message error" hidden></p>
+
+		<section id="authBox" class="panel" hidden>
+			<div class="auth-switch" role="tablist" aria-label="로그인·회원가입">
+				<button type="button" id="loginTab" role="tab" aria-selected="true" aria-controls="loginForm">로그인</button>
+				<button type="button" id="signupTab" role="tab" aria-selected="false" aria-controls="signupForm">회원가입</button>
+			</div>
+			<form id="loginForm" class="auth-form" role="tabpanel" aria-labelledby="loginTab">
+				<label>이메일 <input type="email" name="email" autocomplete="username" required></label>
+				<label>비밀번호 <input type="password" name="password" autocomplete="current-password" required></label>
+				<button type="submit" class="primary">로그인</button>
+				<p id="loginMessage" class="message"></p>
+			</form>
+			<form id="signupForm" class="auth-form" role="tabpanel" aria-labelledby="signupTab" hidden>
+				<label>이메일 <input type="email" name="email" autocomplete="username" required></label>
+				<label>비밀번호 (8자 이상) <input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
+				<label>비밀번호 확인 <input type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
+				<p class="panel-help">가입하면 가게 즐겨찾기와 최근 본 가게를 어느 기기에서든 볼 수 있어요. 이메일과 저장한 가게 말고는 아무것도 모으지 않고, 언제든 탈퇴하면 모두 지워져요.</p>
+				<button type="submit" class="primary">회원가입</button>
+				<p id="signupMessage" class="message"></p>
+			</form>
+		</section>
+
+		<section id="memberBox" hidden>
+			<div class="manager-top">
+				<span id="whoami"></span>
+				<span class="member-actions">
+					<a id="adminLink" class="small" href="admin.html" hidden>관리자 화면</a>
+					<button type="button" id="logout" class="small">로그아웃</button>
+				</span>
+			</div>
+
+			<section class="panel">
+				<h2>즐겨찾기 <span id="favoriteCount" class="panel-count"></span></h2>
+				<ul id="favoriteList" class="place-list"></ul>
+				<p id="favoriteEmpty" class="panel-help" hidden>아직 즐겨찾기한 가게가 없어요. 추천받은 가게 이름 옆 별을 눌러 보세요.</p>
+			</section>
+
+			<section class="panel">
+				<h2>최근 본 가게</h2>
+				<ul id="recentList" class="place-list"></ul>
+				<p id="recentEmpty" class="panel-help" hidden>가게 이름이나 지도를 열면 여기에 최근 30곳이 남아요.</p>
+			</section>
+
+			<p class="account-delete">
+				<button type="button" id="deleteAccount" class="text-button">회원 탈퇴</button>
+			</p>
+		</section>
+	</main>
+</body>
+</html>
