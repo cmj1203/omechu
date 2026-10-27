@@ -2,6 +2,7 @@ import { currentPosition, geocode, locationAlreadyAllowed } from "./nearby-locat
 import { footer, othersList, paragraph, restaurantCard, similarLabel } from "./nearby-renderer.js";
 import { searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
 import { initPlacePicker } from "./place-picker.js";
+import { RATINGS_ENABLED } from "./place-rating.js";
 
 let picker = null;
 
@@ -200,7 +201,7 @@ export function initNearby(section) {
 		if (hasOthers) {
 			nodes.push(othersList(found.others, othersTitle(target, found), [found.pick, ...found.others]));
 		}
-		nodes.push(footer(target, origin));
+		nodes.push(footer(target, origin, RATINGS_ENABLED));
 		result.replaceChildren(...nodes);
 	}
 

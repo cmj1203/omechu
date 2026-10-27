@@ -1,4 +1,5 @@
 import { placeNameLink } from "./place-page.js";
+import { MIN_REVIEWS, trustedRating } from "./place-rating.js";
 import { getSupabase } from "./supabase.js";
 
 // 경고(⚠) 단추로 알린 가게는 이 기기에 기억해 두고, 다음에 그려도 '알렸어요'로 꺼진 채 보여 줘요.
@@ -36,6 +37,10 @@ export function restaurantCard(restaurant, origin, withReport = true) {
 	card.append(name);
 	if (restaurant.officialVisits) {
 		card.append(officialBadge(restaurant.officialVisits));
+	}
+	if (restaurant.googleRating !== undefined) {
+		card.append(paragraph("restaurant-rating", "구글 평점 " + ratingText(restaurant.googleRating)
+			+ (trustedRating(restaurant.googleRating) === null ? "" : "\u00a0· 리뷰 " + restaurant.googleRating.reviews.toLocaleString("ko-KR"))));
 	}
 	card.append(
 		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
@@ -81,11 +86,39 @@ export function othersList(restaurants, title, reportable = restaurants) {
 		if (restaurant.officialVisits) {
 			item.append(officialBadge(restaurant.officialVisits));
 		}
+		if (restaurant.googleRating !== undefined) {
+			item.append(ratingTag(restaurant.googleRating));
+		}
 		item.append(time);
 		list.append(item);
 	}
 	wrapper.append(list);
 	return wrapper;
+}
+
+// 구글 평점은 리뷰가 MIN_REVIEWS 개 이상일 때만 보여 주고, 평점이 없거나 리뷰가 적으면 '-'로 보여 줘요.
+// 평점을 묻지 못한 가게(구글 키 없음·오류)에는 아무것도 붙이지 않아요.
+function ratingText(found) {
+	const rating = trustedRating(found);
+	return rating === null ? "-" : rating.toFixed(1);
+}
+
+function ratingTag(found) {
+	const tag = document.createElement("em");
+	tag.className = "rating-tag";
+	tag.textContent = "★\u00a0" + ratingText(found);
+	tag.title = ratingTitle(found);
+	return tag;
+}
+
+function ratingTitle(found) {
+	if (!found) {
+		return "구글 평점이 없어요";
+	}
+	if (trustedRating(found) === null) {
+		return "구글 리뷰가 " + MIN_REVIEWS + "개보다 적어서(" + found.reviews + "개) 평점을 쓰지 않아요";
+	}
+	return "구글 평점 " + found.rating.toFixed(1) + " · 리뷰 " + found.reviews.toLocaleString("ko-KR") + "개";
 }
 
 // 서울시청 업무추진비로 최근 2년 동안 결제한 횟수예요. 누르면 공무원 맛집 탭으로 가요.
@@ -98,7 +131,8 @@ function officialBadge(visits) {
 	return badge;
 }
 
-export function footer(menu, where) {
+// withRatings 면 구글 평점 출처를 같이 적어요.
+export function footer(menu, where, withRatings = false) {
 	const note = document.createElement("p");
 	note.className = "nearby-footer";
 	const osm = document.createElement("a");
@@ -113,6 +147,7 @@ export function footer(menu, where) {
 		" ",
 		phrase("식당 정보 ©\u00a0", osm, " 기여자 ·"),
 		" ",
+		...(withRatings ? [phrase("평점 ©\u00a0Google ·"), " "] : []),
 		phrase(link("구글 지도에서 더 찾기\u00a0↗", googleMapsUrl(menu, where))),
 	);
 	return note;

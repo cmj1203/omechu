@@ -631,6 +631,13 @@ a.text-button {
 	font-weight: 700;
 }
 
+.restaurant-rating {
+	margin: 0 0 4px;
+	font-size: 14px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
 .restaurant-info {
 	margin: 0 0 4px;
 	color: var(--ash);
@@ -735,6 +742,17 @@ a.text-button {
 	font-size: 12px;
 	font-style: normal;
 	font-weight: 600;
+}
+
+/* 구글 평점: 다른 가까운 곳 목록에서 가게 이름 뒤에 붙어요. 평점이 없거나 리뷰가 적으면 '★ -' */
+.rating-tag {
+	margin-left: 6px;
+	color: var(--ash);
+	font-size: 12px;
+	font-style: normal;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
 }
 
 /* 공무원 단골 배지: 추천 식당 상자 안과 다른 가까운 곳 목록에 붙어요 */

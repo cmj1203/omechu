@@ -1,0 +1,96 @@
+// 구글 지도 JavaScript 키는 브라우저에 그대로 보이는 공개용 키예요. Google Cloud 콘솔에서 이 사이트 주소(HTTP 리퍼러)와
+// Maps JavaScript API·Places API (New)로만 쓰게 묶어 두어야 해요. 비워 두면 평점을 찾지 않고 가까운 순으로만 골라요.
+const GOOGLE_MAPS_KEY = "";
+const SDK_CALLBACK = "omechuGoogleMapsReady";
+const SDK_URL = "https://maps.googleapis.com/maps/api/js?v=weekly&loading=async&language=ko&region=KR&callback=" + SDK_CALLBACK + "&key=" + GOOGLE_MAPS_KEY;
+
+// 리뷰가 이만큼은 있어야 평점을 믿고 추천 순위에 넣어요. 적으면 평점이 없는 가게와 같게 봐요.
+export const MIN_REVIEWS = 100;
+// 상가정보 좌표는 실제 자리와 200m 가까이 어긋나기도 해서 300m 안에서 같은 이름을 찾아요.
+const MATCH_RADIUS_METERS = 300;
+const LOOKUP_TIMEOUT_MS = 4000;
+
+export const RATINGS_ENABLED = Boolean(GOOGLE_MAPS_KEY);
+
+let sdk = null;
+const cache = new Map();
+
+// 가게마다 { rating, reviews } 를, 구글에 없거나 평점이 없으면 null 을, 찾지 못했으면(키 없음·오류·시간 초과) undefined 를 돌려줘요.
+// 같은 가게는 이 화면을 연 동안 다시 묻지 않아요(실패한 가게는 다음에 다시 물어요).
+export function lookupRatings(places) {
+	return Promise.all(places.map((place) => lookupRating(place)));
+}
+
+function lookupRating(place) {
+	if (!RATINGS_ENABLED) {
+		return Promise.resolve(undefined);
+	}
+	const key = place.name + "|" + place.lat + "|" + place.lng;
+	if (!cache.has(key)) {
+		cache.set(key, withTimeout(findRating(place)).catch((error) => {
+			console.warn("구글 평점을 찾지 못했어요: " + place.name, error);
+			cache.delete(key);
+			return undefined;
+		}));
+	}
+	return cache.get(key);
+}
+
+// 리뷰가 MIN_REVIEWS 개 이상일 때만 평점을 돌려줘요.
+export function trustedRating(found) {
+	return found && found.reviews >= MIN_REVIEWS ? found.rating : null;
+}
+
+async function findRating(place) {
+	const { Place } = await loadPlaces();
+	const { places } = await Place.searchByText({
+		textQuery: place.name,
+		fields: ["displayName", "location", "rating", "userRatingCount"],
+		locationBias: { center: { lat: place.lat, lng: place.lng }, radius: MATCH_RADIUS_METERS },
+		maxResultCount: 5,
+	});
+	const name = compactName(place.name);
+	const same = places.find((candidate) => {
+		const other = compactName(candidate.displayName ?? "");
+		return other && (other.includes(name) || name.includes(other))
+			&& metersBetween(place, { lat: candidate.location.lat(), lng: candidate.location.lng() }) <= MATCH_RADIUS_METERS;
+	});
+	if (!same || typeof same.rating !== "number") {
+		return null;
+	}
+	return { rating: same.rating, reviews: same.userRatingCount ?? 0 };
+}
+
+function loadPlaces() {
+	sdk ??= new Promise((resolve, reject) => {
+		window[SDK_CALLBACK] = () => resolve();
+		const script = document.createElement("script");
+		script.src = SDK_URL;
+		script.async = true;
+		script.onerror = () => reject(new Error("구글 지도를 불러오지 못했어요."));
+		document.head.append(script);
+	}).then(() => window.google.maps.importLibrary("places")).catch((error) => {
+		sdk = null;
+		throw error;
+	});
+	return sdk;
+}
+
+function withTimeout(promise) {
+	return Promise.race([
+		promise,
+		new Promise((_, reject) => {
+			setTimeout(() => reject(new Error("구글 장소 검색이 " + LOOKUP_TIMEOUT_MS / 1000 + "초 안에 끝나지 않았어요.")), LOOKUP_TIMEOUT_MS);
+		}),
+	]);
+}
+
+function compactName(name) {
+	return name.toLowerCase().replace(/\s/g, "");
+}
+
+function metersBetween(a, b) {
+	const dy = (a.lat - b.lat) * 111000;
+	const dx = (a.lng - b.lng) * 111000 * Math.cos((a.lat * Math.PI) / 180);
+	return Math.hypot(dx, dy);
+}
