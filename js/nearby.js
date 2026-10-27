@@ -124,7 +124,7 @@ export function initNearby(section) {
 			placeInput.focus();
 			return;
 		}
-		const picked = pickedOrigin?.label === place ? pickedOrigin : null;
+		const picked = (pickedOrigin?.inputText ?? pickedOrigin?.label) === place ? pickedOrigin : null;
 		const id = ++searchId;
 		const target = menu;
 		const pool = filterMenus;
@@ -174,13 +174,14 @@ export function initNearby(section) {
 		}
 	}
 
-	// 현재 위치로 찾으면 그 주소를 위치 칸에 넣어 둬요. 그 칸으로 다시 찾으면 주소를 다시 찾지 않고 같은 좌표를 써요.
+	// 현재 위치로 찾으면 그 주소를 위치 칸에 넣어 둬요. 그 칸으로 다시 찾으면 주소를 다시 찾지 않고 같은 좌표를 쓰고,
+	// 결과에는 주소 대신 계속 '현재 위치에서 도보 약 …'으로 보여 줘요(inputText 는 위치 칸 글자와 맞춰 보는 데만 써요).
 	// 주소를 찾는 동안 기다리지 않고 식당부터 찾고, 그사이 위치 칸을 바꿨으면 덮어쓰지 않아요.
 	async function showAddress(origin, before) {
 		const address = await addressOf(origin);
 		if (address && placeInput.value.trim() === before) {
 			placeInput.value = address;
-			pickedOrigin = { label: address, lat: origin.lat, lng: origin.lng };
+			pickedOrigin = { label: origin.label, lat: origin.lat, lng: origin.lng, inputText: address };
 		}
 	}
 
