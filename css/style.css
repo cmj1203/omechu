@@ -1098,29 +1098,25 @@ a.text-button {
 	flex: 1;
 }
 
-/* 갤럭시처럼 폭이 360px인 화면에서도 '다시 추천받기'가 한 줄에 들어가게 조금 더 줄여요 */
-@media (max-width: 380px) {
+/* 휴대폰에서는 '다시 추천받기'를 한 줄 전체로 두고, 메뉴 검색·가게 검색 칸을 그 아래 줄에 반씩 나눠 둬요.
+   아래 줄은 48px로 낮춰서 화면 아래에 붙은 두 줄이 결과를 너무 가리지 않게 해요 */
+@media (max-width: 480px) {
 	.main-actions {
-		gap: 6px;
+		flex-wrap: wrap;
 	}
 
 	#recommend {
-		font-size: 16px;
+		flex: 1 0 100%;
 	}
 
 	.store-search {
-		width: 100px;
-	}
-
-	.store-search::before {
-		left: 11px;
-		width: 15px;
-		height: 15px;
+		flex: 1 1 0;
+		width: auto;
+		min-width: 0;
 	}
 
 	.store-search input {
-		padding: 0 8px 0 31px;
-		font-size: 14px;
+		height: 48px;
 	}
 }
 

@@ -24,6 +24,9 @@
    - `omechuRating()` (`js/place-rating.js`): 리뷰 수를 반영한 평점. **추천 순서에만 쓰고 화면에는 안 보임** (사용자 요청). 화면은 구글 평점·리뷰 수 그대로 (`구글 평점 4.7 · 리뷰 1,200`, 목록 `★ 4.7`).
    - `fieldset.elements`는 라디오를 RadioNodeList로 묶어 주지 않아서(첫 input만 나옴) `querySelector("input:checked")`로 읽음.
 
+6. **휴대폰에서 검색 칸을 '다시 추천받기' 아래 줄로** (사용자 요청, 끝남)
+   - `css/style.css`의 `@media (max-width: 480px)` `.main-actions` 블록. 예전 380px 이하 한 줄 맞추기 규칙은 지움. 480px 넘으면 예전처럼 한 줄.
+
 ## 정한 것과 이유
 
 - **오메추 평점** = 베이즈 평균 `(리뷰수 × 구글평점 + 100 × 4.0) / (리뷰수 + 100)`.
