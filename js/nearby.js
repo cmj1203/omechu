@@ -4,6 +4,8 @@ import { searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
 import { initPlacePicker } from "./place-picker.js";
 import { RATINGS_ENABLED } from "./place-rating.js";
 
+// 평점 우선·거리 우선 중 고른 것은 이 기기에 기억해요. 처음에는 평점 우선이에요.
+const ORDER_KEY = "omechu.recommendOrder";
 let picker = null;
 
 export function initNearby(section) {
@@ -11,6 +13,7 @@ export function initNearby(section) {
 	const currentButton = section.querySelector("#nearbyCurrentBtn");
 	const placeInput = section.querySelector("#nearbyPlace");
 	const result = section.querySelector("#nearbyResult");
+	const orderChoices = section.querySelector("#nearbyOrder");
 	let menu = null;
 	let filterMenus = [];
 	let listMode = false;
@@ -18,7 +21,18 @@ export function initNearby(section) {
 	let searchId = 0;
 	let pickedOrigin = null;
 	let originLookup = null;
+	let order = readOrder();
 	picker ??= initPlacePicker(document.querySelector("#placePicker"));
+	orderChoices.querySelector("input[value='" + order + "']").checked = true;
+
+	// 이미 찾은 곳이 있으면 같은 위치에서 바로 다시 골라요.
+	orderChoices.addEventListener("change", () => {
+		order = orderChoices.querySelector("input:checked").value;
+		saveOrder(order);
+		if (originLookup) {
+			findRestaurants(false, true);
+		}
+	});
 
 	button.addEventListener("click", () => {
 		if (placeInput.readOnly && !placeInput.value.trim()) {
@@ -77,6 +91,8 @@ export function initNearby(section) {
 		currentButton.disabled = false;
 		currentButton.textContent = "현재 위치로 찾기";
 		result.replaceChildren();
+		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
+		orderChoices.hidden = !RATINGS_ENABLED || listMode;
 		section.hidden = false;
 		if (originLookup) {
 			findRestaurants(false, true);
@@ -113,6 +129,7 @@ export function initNearby(section) {
 		const pool = filterMenus;
 		const asList = listMode;
 		const matchedMenus = queryMenus;
+		const chosenOrder = order;
 		let origin = null;
 		try {
 			setBusy(useCurrentPosition ? "위치 확인 중…" : "위치 찾는 중…", useCurrentPosition);
@@ -132,7 +149,7 @@ export function initNearby(section) {
 				}
 				return;
 			}
-			const found = await searchRestaurants(target, pool, origin);
+			const found = await searchRestaurants(target, pool, origin, chosenOrder);
 			if (id === searchId) {
 				render(target, origin, found);
 			}
@@ -207,6 +224,22 @@ export function initNearby(section) {
 
 	function showMessage(text, target, where) {
 		result.replaceChildren(paragraph("nearby-message", text), footer(target, where));
+	}
+}
+
+function readOrder() {
+	try {
+		return localStorage.getItem(ORDER_KEY) === "distance" ? "distance" : "rating";
+	} catch {
+		return "rating";
+	}
+}
+
+function saveOrder(order) {
+	try {
+		localStorage.setItem(ORDER_KEY, order);
+	} catch {
+		// 저장이 막힌 브라우저(사생활 보호 모드 등)에서는 이 화면을 연 동안만 기억해요.
 	}
 }
 

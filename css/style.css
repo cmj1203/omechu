@@ -553,6 +553,20 @@ a.text-button {
 	color: var(--ash);
 }
 
+/* 추천 기준 칩(평점 우선·거리 우선): 공무원 맛집의 순서 칩처럼 이름표 13px, 가운데 정렬 */
+.nearby-order {
+	margin: 12px 0 0;
+}
+
+.nearby-order legend {
+	margin: 0 auto 6px;
+	font-size: 13px;
+}
+
+.nearby-order .options {
+	justify-content: center;
+}
+
 #nearbyResult {
 	max-width: 560px;
 	margin: 12px auto 0;

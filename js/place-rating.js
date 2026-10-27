@@ -4,8 +4,12 @@ const GOOGLE_MAPS_KEY = "";
 const SDK_CALLBACK = "omechuGoogleMapsReady";
 const SDK_URL = "https://maps.googleapis.com/maps/api/js?v=weekly&loading=async&language=ko&region=KR&callback=" + SDK_CALLBACK + "&key=" + GOOGLE_MAPS_KEY;
 
-// 리뷰가 이만큼은 있어야 평점을 믿고 추천 순위에 넣어요. 적으면 평점이 없는 가게와 같게 봐요.
+// 리뷰가 이만큼은 있어야 평점을 믿고 써요. 적으면 평점이 없는 가게와 같게 봐요.
 export const MIN_REVIEWS = 100;
+// 오메추 평점: 리뷰 PRIOR_REVIEWS 개만큼 PRIOR_RATING 점을 미리 받아 둔 것으로 치고 구글 평점과 섞어요(베이즈 평균).
+// 리뷰가 적을수록 4.0 쪽으로 끌려가서, 리뷰 120개 4.9보다 리뷰 3,000개 4.6이 더 높아요.
+const PRIOR_REVIEWS = 100;
+export const PRIOR_RATING = 4;
 // 상가정보 좌표는 실제 자리와 200m 가까이 어긋나기도 해서 300m 안에서 같은 이름을 찾아요.
 const MATCH_RADIUS_METERS = 300;
 const LOOKUP_TIMEOUT_MS = 4000;
@@ -36,9 +40,12 @@ function lookupRating(place) {
 	return cache.get(key);
 }
 
-// 리뷰가 MIN_REVIEWS 개 이상일 때만 평점을 돌려줘요.
-export function trustedRating(found) {
-	return found && found.reviews >= MIN_REVIEWS ? found.rating : null;
+// 리뷰가 MIN_REVIEWS 개 이상일 때만 오메추 평점을, 아니면 null 을 돌려줘요.
+export function omechuRating(found) {
+	if (!found || found.reviews < MIN_REVIEWS) {
+		return null;
+	}
+	return (found.reviews * found.rating + PRIOR_REVIEWS * PRIOR_RATING) / (found.reviews + PRIOR_REVIEWS);
 }
 
 async function findRating(place) {

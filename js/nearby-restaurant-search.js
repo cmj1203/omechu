@@ -1,26 +1,28 @@
 import { SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS, searchDatabase } from "./nearby-database.js";
 import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuPlace, isOtherMenuPlace, mainCategories, mainTerms, nameForMenu, searchTerms, similarFor } from "./nearby-menu-matching.js";
 import { searchOverpassForMenu } from "./nearby-overpass.js";
-import { lookupRatings, trustedRating } from "./place-rating.js";
+import { PRIOR_RATING, lookupRatings, omechuRating } from "./place-rating.js";
 
 const RECOMMEND_FROM_NEAREST = 3;
-// 추천 식당은 가까운 10곳의 구글 평점을 보고 골라요. 별 1개 차이를 도보 10분으로 쳐요.
-// 평점이 없거나 리뷰가 적은 가게는 평점 4.0으로 봐서, 평점을 못 불러오면 예전처럼 가까운 순으로 골라요.
+// 평점 우선은 가까운 10곳의 오메추 평점을 보고 1등과 0.1점 안쪽인 곳(최대 3곳) 중 하나를 골라요.
+// 평점이 없거나 리뷰가 적은 가게는 PRIOR_RATING(4.0)으로 봐서, 평점을 못 불러오면 가까운 순과 같아져요.
 const RATED_CANDIDATES = 10;
-const MINUTES_PER_STAR = 10;
-const NEUTRAL_RATING = 4;
+const TOP_RATING_MARGIN = 0.1;
 const MAX_OTHERS = 8;
 const MAX_LIST = 30;
 const SAME_PLACE_METERS = 20;
 const HANGUL = /[가-힣]/;
 const ALL_KINDS = ["식사", "간식", "술"];
 
-export async function searchRestaurants(menu, filterMenus, origin) {
+// order 는 "rating"(평점 우선, 기본) 또는 "distance"(거리 우선)예요. 거리 우선도 평점은 표시하려고 물어봐요.
+export async function searchRestaurants(menu, filterMenus, origin, order = "rating") {
 	const found = await searchCandidates(menu, filterMenus, origin);
 	const { forMenu, forFilters, ...result } = found;
-	const chosen = await choose(menu, filterMenus, forMenu, forFilters, pickRated);
+	const byRating = order === "rating";
+	const chosen = await choose(menu, filterMenus, forMenu, forFilters, byRating ? pickTopRated : pickNearRandom);
+	const [pick] = chosen.pick ? await withRatings([chosen.pick]) : [null];
 	const others = await withRatings(chosen.others);
-	return { ...result, ...chosen, others };
+	return { ...result, ...chosen, pick, others: byRating ? others.sort(byOmechuRating) : others };
 }
 
 // 어느 반경의 어떤 가게들로 고를지 정해요. 여기서는 평점을 묻지 않고, 정한 가게들로만 평점을 봐요.
@@ -108,7 +110,7 @@ export async function listRestaurants(filterMenus, origin) {
 	}
 }
 
-async function choose(menu, filterMenus, forMenu, forFilters, pickNear) {
+async function choose(menu, filterMenus, forMenu, forFilters, pickFrom) {
 	const suitable = withoutDuplicates(forFilters
 		.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, menu)?.name }))
 		.filter((place) => place.menuName));
@@ -127,7 +129,7 @@ async function choose(menu, filterMenus, forMenu, forFilters, pickNear) {
 	const broadPlain = broadAll.filter((place) => !isOtherMenuPlace(place, menu));
 	const broad = broadPlain.length > 0 ? broadPlain : broadAll;
 	if (exact.length > 0) {
-		const pick = await pickNear(mainByName.length > 0 ? mainByName : mainByCategory);
+		const pick = await pickFrom(mainByName.length > 0 ? mainByName : mainByCategory);
 		// 다른 가까운 곳도 같은 메뉴를 파는 가게로 보여 줘요. 같은 메뉴 가게가 이 한 곳뿐이면 조건에 맞는 다른 메뉴 가게를 보여 줘요.
 		// 같은 메뉴 목록에서는 메뉴 이름 표시가 되풀이되니 빼요.
 		const sameMenu = [...othersExcept(mainByName, pick), ...othersExcept(mainByCategory, pick)]
@@ -143,7 +145,7 @@ async function choose(menu, filterMenus, forMenu, forFilters, pickNear) {
 		return { mode: "menu", pick, others: othersExcept(suitable, pick) };
 	}
 	if (broad.length > 0) {
-		const pick = await pickNear(broad);
+		const pick = await pickFrom(broad);
 		const others = othersExcept(broad, pick).map(({ menuName, ...place }) => place);
 		const broadTerm = broadTermIn(nameForMenu(pick, menu), menu);
 		const broadCategory = broadTerm ? null : categoryLabel(pick.category);
@@ -152,12 +154,12 @@ async function choose(menu, filterMenus, forMenu, forFilters, pickNear) {
 			: { mode: "broad", pick, broadTerm, broadCategory, others: othersExcept(suitable, pick) };
 	}
 	if (suitable.length > 0) {
-		const pick = await pickNear(suitable);
+		const pick = await pickFrom(suitable);
 		return { mode: "filter", pick, others: othersExcept(suitable, pick) };
 	}
 	const similar = forMenu.filter((place) => !place.matched);
 	if (similar.length > 0) {
-		const pick = await pickNear(similar);
+		const pick = await pickFrom(similar);
 		return { mode: "similar", pick, others: othersExcept(similar, pick) };
 	}
 	return { mode: "none", pick: null, others: [] };
@@ -168,15 +170,27 @@ function pickNearest(places) {
 	return places[0];
 }
 
-// 가까운 10곳의 구글 평점을 보고 점수가 높은 3곳 중 하나를 골라요. 매번 같은 가게만 나오지 않게 3곳 중에서 골라요.
-async function pickRated(places) {
+// 거리 우선: 가까운 3곳 중 하나를 골라요.
+function pickNearRandom(places) {
+	return places[Math.floor(Math.random() * Math.min(RECOMMEND_FROM_NEAREST, places.length))];
+}
+
+// 평점 우선: 가까운 10곳 중 오메추 평점이 1등과 0.1점 안쪽인 곳(최대 3곳)에서 하나를 골라요.
+async function pickTopRated(places) {
 	const nearest = [...places].sort((a, b) => a.distance - b.distance).slice(0, RATED_CANDIDATES);
-	const rated = await withRatings(nearest);
-	const best = rated
-		.map((place) => ({ place, score: (trustedRating(place.googleRating) ?? NEUTRAL_RATING) - place.walkMinutes / MINUTES_PER_STAR }))
-		.sort((a, b) => b.score - a.score)
-		.slice(0, RECOMMEND_FROM_NEAREST);
-	return best[Math.floor(Math.random() * best.length)].place;
+	const rated = (await withRatings(nearest)).sort(byOmechuRating);
+	const top = ratingScore(rated[0]);
+	const best = rated.filter((place) => ratingScore(place) >= top - TOP_RATING_MARGIN).slice(0, RECOMMEND_FROM_NEAREST);
+	return best[Math.floor(Math.random() * best.length)];
+}
+
+// 오메추 평점이 높은 순, 같으면 가까운 순
+function byOmechuRating(a, b) {
+	return ratingScore(b) - ratingScore(a) || a.distance - b.distance;
+}
+
+function ratingScore(place) {
+	return omechuRating(place.googleRating) ?? PRIOR_RATING;
 }
 
 // googleRating 은 lookupRatings 가 돌려준 값이에요(평점·리뷰 수, 없으면 null, 못 찾았으면 undefined).

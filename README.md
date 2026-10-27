@@ -144,7 +144,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 | `js/nearby-overpass.js` | DB가 안 될 때 OpenStreetMap 공개 서버로 찾는 예비 검색 |
 | `js/nearby-menu-matching.js` | 가게가 메뉴와 맞는지 판단 (가게 종류, 검색어 · 제외어) |
 | `js/nearby-renderer.js` | 추천 카드, 다른 가까운 곳 목록, 지도 링크 그리기 |
-| `js/place-rating.js` | 구글 평점 · 리뷰 수 찾기 (구글 지도 JavaScript 키) |
+| `js/place-rating.js` | 구글 평점 · 리뷰 수 찾기, 리뷰 수를 반영한 오메추 평점 (구글 지도 JavaScript 키) |
 | `admin.html`, `js/admin.js` | 관리자 로그인과 메뉴 · 숨긴 가게 관리 |
 | `js/supabase.js` | Supabase 주소와 공개(publishable) 키 |
 | `css/style.css` | 화면 스타일 |
@@ -255,7 +255,9 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
    insert into public.admins (user_id) values ('<계정 uuid>');
    ```
 7. 매달 자동 새로고침을 쓰려면 저장소 Settings → Secrets and variables → Actions 에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SEOUL_OPENAPI_KEY`를 넣어요. `SEOUL_OPENAPI_KEY`는 [서울 열린데이터광장](https://data.seoul.go.kr)에서 무료로 받는 인증키예요(공무원 맛집용, `.env.local`에도 적어요).
-8. 추천 식당을 구글 평점으로 고르려면 [Google Cloud 콘솔](https://console.cloud.google.com)에서 **Maps JavaScript API**와 **Places API (New)**를 켜고 API 키를 만들어 `js/place-rating.js`의 `GOOGLE_MAPS_KEY`에 넣어요. 브라우저에 보이는 키라서 키 제한에서 웹사이트(HTTP 리퍼러)를 이 사이트 주소로, API를 그 두 개로 묶어 둬요. 추천 한 번에 가까운 가게 10곳 정도를 찾고(같은 가게는 화면을 연 동안 다시 찾지 않아요), 평점이 있는 장소 검색이라 무료 한도를 넘으면 요금이 나가요. 키를 비워 두면 평점 없이 가까운 순으로 골라요.
+8. 추천 식당을 평점으로 고르려면 [Google Cloud 콘솔](https://console.cloud.google.com)에서 **Maps JavaScript API**와 **Places API (New)**를 켜고 API 키를 만들어 `js/place-rating.js`의 `GOOGLE_MAPS_KEY`에 넣어요. 브라우저에 보이는 키라서 키 제한에서 웹사이트(HTTP 리퍼러)를 이 사이트 주소로, API를 그 두 개로 묶어 둬요. 추천 한 번에 가까운 가게 10곳 정도를 찾고(같은 가게는 화면을 연 동안 다시 찾지 않아요), 평점이 있는 장소 검색이라 무료 한도를 넘으면 요금이 나가요. 키를 비워 두면 평점 없이 가까운 순으로 고르고 '평점 우선·거리 우선' 칩도 숨겨요.
+   - 오메추 평점 = (리뷰 수 × 구글 평점 + 100 × 4.0) ÷ (리뷰 수 + 100). 리뷰가 적을수록 4.0 쪽으로 당겨져서, 리뷰 120개 4.9(4.5)보다 리뷰 3,000개 4.6(4.6)이 높아요. 리뷰가 100개 미만이면 '-'로 보이고 4.0으로 셈해요.
+   - 평점 우선(기본): 가까운 10곳 중 오메추 평점이 1등과 0.1점 안쪽인 곳(최대 3곳)에서 하나. 거리 우선: 가까운 3곳 중 하나.
 
 새 표나 권한은 `supabase/migrations/`에 SQL 파일을 추가하고 `supabase db push` 하면 돼요.
 

@@ -1,5 +1,5 @@
 import { placeNameLink } from "./place-page.js";
-import { MIN_REVIEWS, trustedRating } from "./place-rating.js";
+import { MIN_REVIEWS, omechuRating } from "./place-rating.js";
 import { getSupabase } from "./supabase.js";
 
 // 경고(⚠) 단추로 알린 가게는 이 기기에 기억해 두고, 다음에 그려도 '알렸어요'로 꺼진 채 보여 줘요.
@@ -39,8 +39,12 @@ export function restaurantCard(restaurant, origin, withReport = true) {
 		card.append(officialBadge(restaurant.officialVisits));
 	}
 	if (restaurant.googleRating !== undefined) {
-		card.append(paragraph("restaurant-rating", "구글 평점 " + ratingText(restaurant.googleRating)
-			+ (trustedRating(restaurant.googleRating) === null ? "" : "\u00a0· 리뷰 " + restaurant.googleRating.reviews.toLocaleString("ko-KR"))));
+		const rating = paragraph("restaurant-rating", "오메추 평점 " + ratingText(restaurant.googleRating));
+		rating.title = ratingTitle(restaurant.googleRating);
+		if (omechuRating(restaurant.googleRating) !== null) {
+			rating.append(phrase(" · 구글 " + restaurant.googleRating.rating.toFixed(1) + " · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
+		}
+		card.append(rating);
 	}
 	card.append(
 		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
@@ -96,10 +100,10 @@ export function othersList(restaurants, title, reportable = restaurants) {
 	return wrapper;
 }
 
-// 구글 평점은 리뷰가 MIN_REVIEWS 개 이상일 때만 보여 주고, 평점이 없거나 리뷰가 적으면 '-'로 보여 줘요.
+// 오메추 평점(리뷰 수를 반영한 구글 평점)은 리뷰가 MIN_REVIEWS 개 이상일 때만 보여 주고, 평점이 없거나 리뷰가 적으면 '-'로 보여 줘요.
 // 평점을 묻지 못한 가게(구글 키 없음·오류)에는 아무것도 붙이지 않아요.
 function ratingText(found) {
-	const rating = trustedRating(found);
+	const rating = omechuRating(found);
 	return rating === null ? "-" : rating.toFixed(1);
 }
 
@@ -115,10 +119,10 @@ function ratingTitle(found) {
 	if (!found) {
 		return "구글 평점이 없어요";
 	}
-	if (trustedRating(found) === null) {
+	if (omechuRating(found) === null) {
 		return "구글 리뷰가 " + MIN_REVIEWS + "개보다 적어서(" + found.reviews + "개) 평점을 쓰지 않아요";
 	}
-	return "구글 평점 " + found.rating.toFixed(1) + " · 리뷰 " + found.reviews.toLocaleString("ko-KR") + "개";
+	return "오메추 평점 " + ratingText(found) + " (구글 " + found.rating.toFixed(1) + " · 리뷰 " + found.reviews.toLocaleString("ko-KR") + "개, 리뷰가 적을수록 4.0 쪽으로 당겨 셈)";
 }
 
 // 서울시청 업무추진비로 최근 2년 동안 결제한 횟수예요. 누르면 공무원 맛집 탭으로 가요.
