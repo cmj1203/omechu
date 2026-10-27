@@ -553,18 +553,38 @@ a.text-button {
 	color: var(--ash);
 }
 
-/* 추천 기준 칩(평점 우선·거리 우선): 공무원 맛집의 순서 칩처럼 이름표 13px, 가운데 정렬 */
+/* 추천 기준 칩(평점·거리): '추천 기준' 이름표 바로 옆에 작은 칩 두 개를 한 줄로 둬요.
+   좁은 화면에서 필터 칩이 폭을 나눠 갖는 규칙(.options label)이 여기서는 칩을 늘리지 않게 덮어써요 */
 .nearby-order {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
 	margin: 12px 0 0;
 }
 
-.nearby-order legend {
-	margin: 0 auto 6px;
+.nearby-order[hidden] {
+	display: none;
+}
+
+.nearby-order-label {
+	color: var(--ash);
 	font-size: 13px;
+	font-weight: 700;
 }
 
 .nearby-order .options {
-	justify-content: center;
+	flex-wrap: nowrap;
+	gap: 6px;
+}
+
+.nearby-order .options label {
+	flex: none;
+}
+
+.nearby-order .options span {
+	padding: 5px 12px;
+	font-size: 13px;
 }
 
 #nearbyResult {
