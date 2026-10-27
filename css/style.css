@@ -276,18 +276,32 @@ a.text-button {
 	width: 100%;
 }
 
+/* 위치 칸 하나가 찾기 단추 노릇을 해요. 누르면 장소 검색 창이 열리고, 고르면 바로 추천해요. 왼쪽 돋보기로 누를 수 있는 칸인 걸 보여 줘요 */
 .nearby-form {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	gap: 8px;
+	position: relative;
+	width: min(100%, 300px);
+	margin: 0 auto;
+	color: var(--ash);
+}
+
+.nearby-form::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 14px;
+	width: 17px;
+	height: 17px;
+	background: currentColor;
+	transform: translateY(-50%);
+	pointer-events: none;
+	-webkit-mask: var(--icon-search) center / contain no-repeat;
+	mask: var(--icon-search) center / contain no-repeat;
 }
 
 #nearbyPlace {
-	flex: 1 1 220px;
-	max-width: 300px;
+	width: 100%;
 	height: 48px;
-	padding: 0 14px;
+	padding: 0 14px 0 40px;
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-md);
 	background: var(--canvas);
@@ -502,10 +516,6 @@ a.text-button {
 }
 
 @media (hover: hover) {
-	#nearbyBtn:hover:not(:disabled) {
-		background: var(--ink-strong);
-	}
-
 	#nearbyCurrentBtn:hover:not(:disabled) {
 		background: var(--cloud);
 	}
@@ -541,8 +551,11 @@ a.text-button {
 	display: none;
 }
 
+/* 위치 칸과 같은 폭으로 바로 아래에 둬요 */
 #nearbyCurrentBtn {
 	display: flex;
+	justify-content: center;
+	width: min(100%, 300px);
 	margin: 8px auto 0;
 	border: 1px solid var(--hairline);
 	background: var(--canvas);

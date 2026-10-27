@@ -9,7 +9,6 @@ const ORDER_KEY = "omechu.recommendOrder";
 let picker = null;
 
 export function initNearby(section) {
-	const button = section.querySelector("#nearbyBtn");
 	const currentButton = section.querySelector("#nearbyCurrentBtn");
 	const placeInput = section.querySelector("#nearbyPlace");
 	const result = section.querySelector("#nearbyResult");
@@ -21,6 +20,7 @@ export function initNearby(section) {
 	let searchId = 0;
 	let pickedOrigin = null;
 	let originLookup = null;
+	let busy = false;
 	let order = readOrder();
 	picker ??= initPlacePicker(document.querySelector("#placePicker"));
 	orderChoices.querySelector("input[value='" + order + "']").checked = true;
@@ -34,16 +34,10 @@ export function initNearby(section) {
 		}
 	});
 
-	button.addEventListener("click", () => {
-		if (placeInput.readOnly && !placeInput.value.trim()) {
-			choosePlace();
-			return;
-		}
-		findRestaurants(false);
-	});
+	// 따로 '찾기' 단추 없이, 위치 칸을 눌러 장소를 고르면 바로 그곳으로 추천해요.
 	currentButton.addEventListener("click", () => findRestaurants(true));
 	placeInput.addEventListener("click", () => {
-		if (placeInput.readOnly && !button.disabled) {
+		if (placeInput.readOnly && !busy) {
 			choosePlace();
 		}
 	});
@@ -52,7 +46,7 @@ export function initNearby(section) {
 		originLookup = null;
 	});
 	placeInput.addEventListener("keydown", (event) => {
-		if (event.key !== "Enter" || button.disabled) {
+		if (event.key !== "Enter" || busy) {
 			return;
 		}
 		if (placeInput.readOnly) {
@@ -86,8 +80,7 @@ export function initNearby(section) {
 
 	async function start() {
 		const id = ++searchId;
-		button.disabled = false;
-		button.textContent = idleLabel();
+		busy = false;
 		currentButton.disabled = false;
 		currentButton.textContent = "현재 위치로 추천받기";
 		result.replaceChildren();
@@ -166,8 +159,7 @@ export function initNearby(section) {
 			}
 		} finally {
 			if (id === searchId) {
-				button.disabled = false;
-				button.textContent = idleLabel();
+				busy = false;
 				currentButton.disabled = false;
 				currentButton.textContent = "현재 위치로 추천받기";
 			}
@@ -185,10 +177,6 @@ export function initNearby(section) {
 		}
 	}
 
-	function idleLabel() {
-		return listMode ? "주변 가게 찾기" : "주변 '" + menu.name + "' 식당 추천";
-	}
-
 	function renderList(target, origin, found) {
 		if (found.places.length === 0) {
 			showMessage(origin.label + " 근처 " + found.searchedKm + "km 안에서 '" + target.name + "' 가게를 찾지 못했어요.", target, origin);
@@ -202,11 +190,15 @@ export function initNearby(section) {
 		result.replaceChildren(...nodes);
 	}
 
+	// 현재 위치로 찾을 때는 그 단추에, 위치 칸으로 찾을 때는 결과 자리에 하는 일을 보여 줘요.
 	function setBusy(label, useCurrentPosition) {
-		button.disabled = true;
+		busy = true;
 		currentButton.disabled = true;
-		button.textContent = useCurrentPosition ? idleLabel() : label;
-		currentButton.textContent = useCurrentPosition ? label : "현재 위치로 추천받기";
+		if (useCurrentPosition) {
+			currentButton.textContent = label;
+		} else {
+			result.replaceChildren(paragraph("nearby-message", label));
+		}
 	}
 
 	function render(target, origin, found) {
