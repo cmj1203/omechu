@@ -3,8 +3,10 @@
 import { test as base, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("../..", import.meta.url).pathname;
+// 경로에 공백·한글이 있어도 읽히게 pathname 대신 fileURLToPath 를 써요.
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const ORIGIN = { latitude: 37.5665, longitude: 126.978 };
 
 // 가짜 가게: [이름 앞말, 북쪽으로 몇 m, 구글 정보(없으면 null)]. 이름은 '앞말 + 찾는 메뉴 검색어'가 돼요.
@@ -177,8 +179,9 @@ export const test = base.extend({
 			if (url.hostname === "app.test") {
 				const path = url.pathname === "/" ? "/index.html" : url.pathname;
 				let body = readFileSync(join(ROOT, decodeURIComponent(path)));
-				if (googleKey && path === "/js/place-rating.js") {
-					body = body.toString().replace('const GOOGLE_MAPS_KEY = "";', 'const GOOGLE_MAPS_KEY = "TEST";');
+				// 실제 키가 들어 있어도 테스트는 늘 정해진 값(있음 TEST / 없음 빈 글자)으로 돌게 상수 줄을 통째로 바꿔요.
+				if (path === "/js/place-rating.js") {
+					body = body.toString().replace(/const GOOGLE_MAPS_KEY = "[^"]*";/, 'const GOOGLE_MAPS_KEY = "' + (googleKey ? "TEST" : "") + '";');
 				}
 				return route.fulfill({ contentType: (TYPES[extname(path)] ?? "application/octet-stream") + "; charset=utf-8", body });
 			}

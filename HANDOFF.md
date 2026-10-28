@@ -10,7 +10,7 @@
 
 1. **구글 키**: `js/place-rating.js`의 `GOOGLE_MAPS_KEY`가 비어 있음. 비어 있으면 평점·영업 상태·추천 기준 칩이 모두 꺼지고 가까운 순으로만 고름.
    키를 넣을 때 **HTTP 리퍼러 제한 + Places API 하루 할당량 상한**을 꼭 걸 것(README 8번).
-2. **Supabase 회원가입 켜기**: 대시보드 Authentication에서 새 가입 허용·Email 켜기, Redirect URLs 에 `https://cmj1203.github.io/omechu/**` 추가(README 9번). `supabase/config.toml`도 같게 맞춰 둠.
+2. **Supabase 회원가입 켜기**: 대시보드 Authentication에서 새 가입 허용·Email 켜기, Redirect URLs 에 `https://cmj1203.github.io/omechu/**` 추가(README 9번). 비밀번호 최소 길이도 8로(가입 화면과 같게, `config.toml`은 8로 맞춤). `supabase/config.toml`도 같게 맞춰 둠.
 3. **새 마이그레이션 적용**: `supabase db push` (아래 두 파일).
 4. **실제 서비스 확인(2026-10-28 맥에서 함)**: 공개 도메인에서 브랜치 파일로 열어 보니 CSP가 카카오 SDK 본체(`t1.kakaocdn.net`)를 막아 장소 검색·현재 위치 주소가 안 됐음. 다섯 HTML의 script-src 에 `https://*.kakaocdn.net` 을 더해 해결(아이폰 크기에서 현재 위치 주소 채우기·식당 추천 확인). 구글은 키가 없어 아직 못 봄. 아래는 원래 메모.
 4-1. **실제 서비스로 한 번 확인**: 이 클라우드 환경은 구글·카카오·Supabase에 못 나가서 모두 가짜 응답으로만 확인함. 특히
