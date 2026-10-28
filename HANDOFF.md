@@ -3,7 +3,7 @@
 다른 Claude 세션(터미널 등)이 이 작업을 이어받을 수 있게 적어 두는 문서예요. 작업할 때마다 고쳐요.
 
 - 브랜치: `claude/serene-faraday-2f849z` (PR 아직 없음, PR은 사용자가 요청할 때만)
-- 마지막 갱신: 2026-10-27
+- 마지막 갱신: 2026-10-28
 - 테스트: `npm ci && npm test`(화면), `PGHOST=… PGUSER=… PGPASSWORD=… npm run test:db`(DB). CI는 `.github/workflows/test.yml`.
 
 ## 사용자가 해야 하는 일 (코드로 못 하는 것)
@@ -12,7 +12,8 @@
    키를 넣을 때 **HTTP 리퍼러 제한 + Places API 하루 할당량 상한**을 꼭 걸 것(README 8번).
 2. **Supabase 회원가입 켜기**: 대시보드 Authentication에서 새 가입 허용·Email 켜기, Redirect URLs 에 `https://cmj1203.github.io/omechu/**` 추가(README 9번). `supabase/config.toml`도 같게 맞춰 둠.
 3. **새 마이그레이션 적용**: `supabase db push` (아래 두 파일).
-4. **실제 서비스로 한 번 확인**: 이 클라우드 환경은 구글·카카오·Supabase에 못 나가서 모두 가짜 응답으로만 확인함. 특히
+4. **실제 서비스 확인(2026-10-28 맥에서 함)**: 공개 도메인에서 브랜치 파일로 열어 보니 CSP가 카카오 SDK 본체(`t1.kakaocdn.net`)를 막아 장소 검색·현재 위치 주소가 안 됐음. 다섯 HTML의 script-src 에 `https://*.kakaocdn.net` 을 더해 해결(아이폰 크기에서 현재 위치 주소 채우기·식당 추천 확인). 구글은 키가 없어 아직 못 봄. 아래는 원래 메모.
+4-1. **실제 서비스로 한 번 확인**: 이 클라우드 환경은 구글·카카오·Supabase에 못 나가서 모두 가짜 응답으로만 확인함. 특히
    - CSP(`<meta http-equiv="Content-Security-Policy">`, 다섯 화면)에 막히는 실제 카카오·구글 스크립트·이미지가 없는지(브라우저 콘솔의 'Refused to …'). 막히면 그 주소를 다섯 HTML의 CSP에 더하면 됨.
    - 구글 이름·위치 맞추기(체인점 '○○점', 영어 이름 가게), `place.isOpen()` 결과.
 
