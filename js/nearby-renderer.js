@@ -39,6 +39,17 @@ export function restaurantCard(restaurant, origin, withReport = true, onAnother 
 	head.className = "restaurant-head";
 	const name = paragraph("restaurant-name", "");
 	name.append(placeNameLink(restaurant), favoriteButton(restaurant));
+	// 구글 평점·리뷰 수는 가게 이름 옆에 작게 붙여요(사용자 10-29).
+	if (restaurant.googleRating !== undefined) {
+		const rating = document.createElement("span");
+		rating.className = "restaurant-rating";
+		rating.textContent = "구글 평점 " + ratingText(restaurant.googleRating);
+		rating.title = ratingTitle(restaurant.googleRating);
+		if (omechuRating(restaurant.googleRating) !== null) {
+			rating.append(phrase(" · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
+		}
+		name.append(" ", rating);
+	}
 	head.append(name);
 	if (onAnother) {
 		head.append(anotherButton(onAnother));
@@ -47,27 +58,19 @@ export function restaurantCard(restaurant, origin, withReport = true, onAnother 
 	if (restaurant.officialVisits) {
 		card.append(officialBadge(restaurant.officialVisits));
 	}
-	if (restaurant.googleRating !== undefined) {
-		const rating = paragraph("restaurant-rating", "구글 평점 " + ratingText(restaurant.googleRating));
-		rating.title = ratingTitle(restaurant.googleRating);
-		if (omechuRating(restaurant.googleRating) !== null) {
-			rating.append(phrase(" · 리뷰\u00a0" + restaurant.googleRating.reviews.toLocaleString("ko-KR")));
-		}
-		const open = openText(restaurant.googleRating);
-		if (open) {
-			const status = document.createElement("span");
-			status.className = knownClosed(restaurant.googleRating) ? "open-status closed" : "open-status";
-			status.textContent = open;
-			rating.append(" · ", status);
-		}
-		card.append(rating);
+	// 오늘 영업시간과 지금 영업 상태. 구글에 없거나 못 물어봤으면 '--:--'로 두고 상태는 빼요.
+	const hours = paragraph("restaurant-hours", "영업시간 " + (restaurant.googleRating?.hours ?? "--:--"));
+	const open = openText(restaurant.googleRating);
+	if (open) {
+		const status = document.createElement("span");
+		status.className = knownClosed(restaurant.googleRating) ? "open-status closed" : "open-status";
+		status.textContent = open;
+		hours.append(" · ", status);
 	}
-	// 오늘 영업시간. 구글에 없거나 못 물어봤으면 '--:--'로 두어요.
-	card.append(paragraph("restaurant-hours", "영업시간 " + (restaurant.googleRating?.hours ?? "--:--")));
-	card.append(
-		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
-		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance)),
-	);
+	card.append(hours);
+	// 위치는 위치 칸에 보이니 '○○에서'는 붙이지 않아요(사용자 10-29). 공유 글에만 붙여요.
+	// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
+	card.append(paragraph("restaurant-walk", "도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance)));
 	const info = [restaurant.address, restaurant.phone].filter(Boolean).join(" · ");
 	if (info) {
 		card.append(paragraph("restaurant-info", info));

@@ -807,11 +807,15 @@ a.text-button {
 	font-weight: 700;
 }
 
-.restaurant-rating {
-	margin: 0 0 4px;
+/* 구글 평점·리뷰 수: 가게 이름 옆에 이름보다 작게. 줄이 모자라면 통째로 다음 줄로 내려가요 */
+.restaurant-name .restaurant-rating {
+	display: inline-block;
+	margin-left: 4px;
 	font-size: 14px;
 	font-weight: 700;
+	letter-spacing: 0;
 	font-variant-numeric: tabular-nums;
+	vertical-align: 2px;
 }
 
 .restaurant-info {

@@ -6,8 +6,10 @@ test.describe("주변 식당 추천", () => {
 		await expect(page.locator("#nearbyOrder input[value='rating']")).toBeChecked();
 		// 닫힌(4.9·2,000개)·폐업(4.8)이 더 높아도 지금 문을 닫아서 빼고, 리뷰 12개 5.0보다 리뷰 1,500개 4.7을 골라요.
 		await expect(page.locator(".restaurant-name .place-name-link")).toHaveText(/^인기/);
-		await expect(page.locator(".restaurant-rating")).toHaveText("구글 평점 4.7 · 리뷰 1,500 · 영업 중");
-		await expect(page.locator(".restaurant-hours")).toHaveText("영업시간 11:00~21:30");
+		// 평점·리뷐 수는 가게 이름 줄에, 영업 상태는 영업시간 줄에 붙어요.
+		await expect(page.locator(".restaurant-name .restaurant-rating")).toHaveText("구글 평점 4.7 · 리뷰 1,500");
+		await expect(page.locator(".restaurant-hours")).toHaveText("영업시간 11:00~21:30 · 영업 중");
+		await expect(page.locator(".restaurant-walk")).toHaveText(/^도보 약 \d+분/);
 	});
 
 	test("목록에 평점은 구글 그대로, 리뷰 10개 미만·구글에 없는 가게는 '-', 닫은 가게는 '영업 종료'·'폐업'", async ({ page }) => {
@@ -52,13 +54,13 @@ test.describe("주변 식당 추천", () => {
 		await expect(name).toHaveText(/^인기/);
 	});
 
-	test("위치 칸 안의 현재 위치 단추로 추천하면 주소가 위치 칸에 들어가고 결과는 '현재 위치에서'", async ({ page }) => {
+	test("위치 칸 안의 현재 위치 단추로 추천하면 주소가 위치 칸에 들어간다", async ({ page }) => {
 		await page.goto("/index.html");
 		await page.evaluate(() => navigator.permissions.query = async () => ({ state: "prompt" }));
 		await page.locator("#recommend:not([disabled])").click();
 		await expect(page.locator(".restaurant-card")).toHaveCount(0);
 		await page.getByRole("button", { name: "현재 위치로 추천받기" }).click();
-		await expect(page.locator(".restaurant-walk")).toHaveText(/^현재 위치에서 도보/);
+		await expect(page.locator(".restaurant-card")).toBeVisible();
 		await expect(page.locator("#nearbyPlace")).toHaveValue("서울 중구 세종대로 110");
 	});
 
@@ -68,7 +70,8 @@ test.describe("주변 식당 추천", () => {
 		await page.locator(".place-picker-form input").fill("강남역");
 		await page.locator(".place-picker-form button").click();
 		await page.locator(".place-picker-results button").first().click();
-		await expect(page.locator(".restaurant-walk")).toHaveText(/^강남역 2호선에서 도보/);
+		await expect(page.locator("#nearbyPlace")).toHaveValue("강남역 2호선");
+		await expect(page.locator(".restaurant-card")).toBeVisible();
 		// 예전 '주변 ○○ 식당 추천' 단추는 없어요.
 		await expect(page.locator("#nearbyBtn")).toHaveCount(0);
 	});
