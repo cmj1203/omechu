@@ -122,11 +122,6 @@ body {
 	font-weight: 700;
 }
 
-.lock-note {
-	font-size: 13px;
-	font-weight: 500;
-}
-
 .options {
 	display: flex;
 	flex-wrap: wrap;

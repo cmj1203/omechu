@@ -10,7 +10,6 @@ const menuSearch = document.getElementById("menuSearch");
 const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
 const dataNote = document.getElementById("dataNote");
-const lockNote = document.getElementById("cuisineLockNote");
 const nearby = initNearby(document.getElementById("nearby"));
 
 // 간식·술은 나라 구분 없이 추천해서, 고르면 나라를 '전체'로 고정하고 다른 나라는 못 고르게 해요
@@ -152,7 +151,6 @@ function allowedMenus(recommendAgain) {
 function lockCuisine() {
 	const kind = form.elements.kind.value;
 	const locked = kind === "간식" || kind === "술";
-	lockNote.hidden = !locked;
 	for (const option of form.elements.cuisine) {
 		if (option.value === "전체") {
 			if (locked) {
