@@ -1,6 +1,6 @@
 // 구글 지도 JavaScript 키는 브라우저에 그대로 보이는 공개용 키예요. Google Cloud 콘솔에서 이 사이트 주소(HTTP 리퍼러)와
 // Maps JavaScript API·Places API (New)로만 쓰게 묶어 두어야 해요. 비워 두면 평점을 찾지 않고 가까운 순으로만 골라요.
-const GOOGLE_MAPS_KEY = "";
+const GOOGLE_MAPS_KEY = "AIzaSyA244zFyylVze0SW0Z_NzW50vqQ4E40Atc";
 const SDK_CALLBACK = "omechuGoogleMapsReady";
 const SDK_URL = "https://maps.googleapis.com/maps/api/js?v=weekly&loading=async&language=ko&region=KR&callback=" + SDK_CALLBACK + "&key=" + GOOGLE_MAPS_KEY;
 
