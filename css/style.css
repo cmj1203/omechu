@@ -658,7 +658,8 @@ a.text-button {
 	height: 36px;
 	margin-top: 2px;
 	padding: 0 12px;
-	border: 1px solid var(--hairline);
+	/* 흰 바탕 위에서 1px 연회색은 거의 안 보여서 먹색 2px */
+	border: 2px solid var(--ink);
 	border-radius: var(--radius-full);
 	background: var(--canvas);
 	color: var(--ink);
@@ -681,11 +682,12 @@ a.text-button {
 
 @media (hover: hover) {
 	.another-button:hover:not(:disabled) {
-		border-color: var(--ink);
+		background: var(--cloud);
 	}
 }
 
 .another-button:disabled {
+	border-color: var(--ash);
 	color: var(--ash);
 	cursor: wait;
 }
@@ -709,7 +711,9 @@ a.text-button {
 	border-radius: var(--radius-full);
 	background: transparent;
 	color: var(--ash);
-	vertical-align: -6px;
+	/* 가게 이름 글자의 세로 가운데에 맞춰요 */
+	vertical-align: middle;
+	margin-top: -3px;
 	cursor: pointer;
 }
 
