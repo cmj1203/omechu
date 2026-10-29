@@ -196,7 +196,7 @@ export const test = base.extend({
 			}
 			return route.abort();
 		});
-		// 무작위로 고르는 곳(가까운 3곳 중 하나 등)이 늘 첫째를 고르게 해서 결과를 정해 둬요.
+		// 무작위로 고르는 곳(메뉴 추천 등)이 늘 첫째를 고르게 해서 결과를 정해 둬요.
 		await context.addInitScript(() => {
 			Math.random = () => 0;
 		});

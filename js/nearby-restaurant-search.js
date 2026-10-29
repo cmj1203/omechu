@@ -3,11 +3,9 @@ import { bestMenu, broadTermIn, categoryLabel, hasMainTerm, isMainPlace, isMenuP
 import { searchOverpassForMenu } from "./nearby-overpass.js";
 import { PRIOR_RATING, knownClosed, lookupRatings, omechuRating } from "./place-rating.js";
 
-const RECOMMEND_FROM_NEAREST = 3;
-// 평점 우선은 가까운 10곳의 오메추 평점을 보고 1등과 0.1점 안쪽인 곳(최대 3곳) 중 하나를 골라요.
+// 평점 우선은 가까운 10곳의 오메추 평점을 보고 가장 높은 곳을 골라요(같으면 가까운 곳).
 // 평점이 없거나 리뷰가 적은 가게는 PRIOR_RATING(4.0)으로 봐서, 평점을 못 불러오면 가까운 순과 같아져요.
 const RATED_CANDIDATES = 10;
-const TOP_RATING_MARGIN = 0.1;
 const MAX_OTHERS = 8;
 const MAX_LIST = 30;
 const SAME_PLACE_METERS = 20;
@@ -20,7 +18,7 @@ export async function searchRestaurants(menu, filterMenus, origin, order = "rati
 	const found = await searchCandidates(menu, filterMenus, origin);
 	const { forMenu, forFilters, ...result } = found;
 	const byRating = order === "rating";
-	const picker = byRating ? pickTopRated : pickNearRandom;
+	const picker = byRating ? pickTopRated : pickNearestOpen;
 	// 남은 가게가 모두 지금 문 닫은 곳이면, 문 닫은 곳을 추천하지 않고 처음부터 다시 골라요.
 	const pickFrom = async (places) => {
 		const fresh = places.filter((place) => !shown.has(placeKey(place)));
@@ -184,19 +182,16 @@ function pickNearest(places) {
 	return places[0];
 }
 
-// 거리 우선: 가까운 3곳 중 하나를 골라요. 지금 문 닫은 가게는 다른 가게가 없을 때만 골라요.
-async function pickNearRandom(places) {
-	const nearest = openFirst(await withRatings(nearestOf(places))).slice(0, RECOMMEND_FROM_NEAREST);
-	return nearest[Math.floor(Math.random() * nearest.length)];
+// 거리 우선: 가장 가까운 가게를 골라요. 지금 문 닫은 가게는 다른 가게가 없을 때만 골라요.
+// '다른 가게'를 누르면 이미 보여 준 가게를 빼고 부르니 그다음 가까운 가게가 돼요.
+async function pickNearestOpen(places) {
+	return openFirst(await withRatings(nearestOf(places)))[0];
 }
 
-// 평점 우선: 가까운 10곳 중 오메추 평점이 1등과 0.1점 안쪽인 곳(최대 3곳)에서 하나를 골라요.
+// 평점 우선: 가까운 10곳 중 오메추 평점이 가장 높은 가게를 골라요(같으면 가까운 곳).
 // 지금 문 닫은 가게는 다른 가게가 없을 때만 골라요.
 async function pickTopRated(places) {
-	const rated = openFirst(await withRatings(nearestOf(places))).sort(byOmechuRating);
-	const top = ratingScore(rated[0]);
-	const best = rated.filter((place) => ratingScore(place) >= top - TOP_RATING_MARGIN).slice(0, RECOMMEND_FROM_NEAREST);
-	return best[Math.floor(Math.random() * best.length)];
+	return openFirst(await withRatings(nearestOf(places))).sort(byOmechuRating)[0];
 }
 
 function nearestOf(places) {
