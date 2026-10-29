@@ -738,7 +738,7 @@ a.text-button {
 .others .favorite-button {
 	width: 28px;
 	height: 28px;
-	vertical-align: -8px;
+	margin-top: -2px;
 }
 
 .others .favorite-button::before {
@@ -2212,7 +2212,8 @@ a.small {
 	.favorite-button::after {
 		content: "";
 		position: absolute;
-		inset: -5px -1px;
+		/* '다른 가게'는 2px 테두리 안쪽에서 재서 그만큼 더 빼요 */
+		inset: -6px -2px;
 	}
 
 	.favorite-button::after {
