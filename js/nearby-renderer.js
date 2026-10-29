@@ -62,6 +62,8 @@ export function restaurantCard(restaurant, origin, withReport = true, onAnother 
 		}
 		card.append(rating);
 	}
+	// 오늘 영업시간. 구글에 없거나 못 물어봤으면 '--:--'로 두어요.
+	card.append(paragraph("restaurant-hours", "영업시간 " + (restaurant.googleRating?.hours ?? "--:--")));
 	card.append(
 		// '분'과 '·' 사이는 줄바꿈 없는 공백이라, 좁은 화면에서는 · 뒤에서만 줄이 바뀌어요.
 		paragraph("restaurant-walk", origin.label + "에서 도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance)),

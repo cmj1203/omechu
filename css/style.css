@@ -820,6 +820,13 @@ a.text-button {
 	font-size: 13px;
 }
 
+/* 추천 상자의 오늘 영업시간 줄 */
+.restaurant-hours {
+	margin: 0 0 4px;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
 .restaurant-links {
 	display: flex;
 	flex-wrap: wrap;

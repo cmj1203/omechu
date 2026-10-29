@@ -7,6 +7,7 @@ test.describe("주변 식당 추천", () => {
 		// 닫힌(4.9·2,000개)·폐업(4.8)이 더 높아도 지금 문을 닫아서 빼고, 리뷰 12개 5.0보다 리뷰 1,500개 4.7을 골라요.
 		await expect(page.locator(".restaurant-name .place-name-link")).toHaveText(/^인기/);
 		await expect(page.locator(".restaurant-rating")).toHaveText("구글 평점 4.7 · 리뷰 1,500 · 영업 중");
+		await expect(page.locator(".restaurant-hours")).toHaveText("영업시간 11:00~21:30");
 	});
 
 	test("목록에 평점은 구글 그대로, 리뷰 10개 미만·구글에 없는 가게는 '-', 닫은 가게는 '영업 종료'·'폐업'", async ({ page }) => {
@@ -27,6 +28,8 @@ test.describe("주변 식당 추천", () => {
 		await recommend(page);
 		await page.locator("#nearbyOrder label", { hasText: "거리" }).click();
 		await expect(page.locator(".restaurant-name .place-name-link")).toHaveText(/^가까운/);
+		// 구글에 없는 가게는 영업시간을 모르니 '--:--'
+		await expect(page.locator(".restaurant-hours")).toHaveText("영업시간 --:--");
 		await page.reload();
 		await page.locator("#recommend:not([disabled])").click();
 		await expect(page.locator("#nearbyOrder input[value='distance']")).toBeChecked();

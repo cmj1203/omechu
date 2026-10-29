@@ -10,6 +10,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const ORIGIN = { latitude: 37.5665, longitude: 126.978 };
 
 // 가짜 가게: [이름 앞말, 북쪽으로 몇 m, 구글 정보(없으면 null)]. 이름은 '앞말 + 찾는 메뉴 검색어'가 돼요.
+// hours 는 매일 같은 영업시간 [[여는 시, 분], [닫는 시, 분]]이고, 없으면 구글에 영업시간이 없는 가게예요.
 // 평점 우선: 인기(오메추 4.66) > 조금(리뷰 12개 5.0 → 4.11) > 가까운(구글 없음 → 4.0) > 둘째 > 셋째, 닫힌·폐업은 빼요.
 export const PLACES = [
 	["가까운", 100, null],
@@ -18,7 +19,7 @@ export const PLACES = [
 	["조금", 150, { rating: 5.0, reviews: 12, open: true }],
 	["둘째", 200, { rating: 3.5, reviews: 300, open: true }],
 	["셋째", 300, { rating: 3.4, reviews: 250 }],
-	["인기", 700, { rating: 4.7, reviews: 1500, open: true }],
+	["인기", 700, { rating: 4.7, reviews: 1500, open: true, hours: [[11, 0], [21, 30]] }],
 ];
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
@@ -139,6 +140,10 @@ const fakeGoogle = (places) => `(() => {
 			rating: info.rating, userRatingCount: info.reviews,
 			businessStatus: info.status ?? "OPERATIONAL",
 			isOpen: async () => info.open,
+			regularOpeningHours: info.hours ? { periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+				open: { day, hour: info.hours[0][0], minute: info.hours[0][1] },
+				close: { day, hour: info.hours[1][0], minute: info.hours[1][1] },
+			})) } : undefined,
 		}] };
 	} } }) } };
 	const callback = new URL(document.currentScript.src).searchParams.get("callback");
