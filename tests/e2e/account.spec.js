@@ -70,6 +70,36 @@ test("회원은 즐겨찾기·최근 본 가게를 내 계정에서 보고, 빼�
 	await expect(page.locator("#loginForm")).toBeVisible();
 });
 
+test("'메뉴 빼기'는 새로고침하면 풀리고, 회원이 내 계정에 넣은 기본 제외 메뉴는 추천에서 늘 빠진다", async ({ page }) => {
+	await recommend(page);
+	const name = page.locator(".menu-name");
+	const first = await name.textContent();
+	await page.getByRole("button", { name: "메뉴 빼기", exact: true }).click();
+	await expect(name).not.toHaveText(first);
+	await expect(page.locator(".skipped-list li > span")).toHaveText([first]);
+	await page.reload();
+	await expect(page.locator("#skippedMenus")).toBeHidden();
+	await expect(page.locator(".skipped-list li")).toHaveCount(0);
+
+	await signUp(page);
+	await page.locator("#excludeSelect").selectOption(first);
+	await page.locator("#excludeForm").getByRole("button", { name: "넣기" }).click();
+	await expect(page.locator("#excludedList li .place-name")).toHaveText([first]);
+	await expect(page.locator("#excludedCount")).toHaveText("(1개)");
+	await expect(page.locator("#excludeSelect option", { hasText: first })).toHaveCount(0);
+
+	// Math.random 이 0이라 맨 앞 메뉴가 나오는데, 기본 제외된 메뉴는 건너뛰어요.
+	await recommend(page);
+	await expect(name).not.toHaveText(first);
+
+	await page.goto("/account.html");
+	await page.locator("#excludedList li").getByRole("button", { name: "빼기" }).click();
+	await expect(page.locator("#excludedList li")).toHaveCount(0);
+	await expect(page.locator("#excludedEmpty")).toBeVisible();
+	await recommend(page);
+	await expect(name).toHaveText(first);
+});
+
 test("일반 회원으로 관리자 화면에 가면 로그아웃시키지 않고 내 계정으로 안내한다", async ({ page }) => {
 	await signUp(page);
 	await expect(page.locator("#adminLink")).toBeHidden();

@@ -1,7 +1,8 @@
 import { getSupabase } from "./supabase.js";
-import { currentPosition, geocode } from "./nearby-location.js";
+import { addressOf, currentPosition, geocode } from "./nearby-location.js";
 import { walkMinutes } from "./nearby-database.js";
 import { placeNameLink } from "./place-page.js";
+import { initPlacePicker } from "./place-picker.js";
 
 const DEFAULT_RADIUS_METERS = 1500;
 const WIDER_RADIUS_METERS = 3000;
@@ -10,7 +11,6 @@ const SOURCE_FIELDS = "name,address,category,lat,lng,visits,departments,avg_per_
 
 const form = document.getElementById("officialSearch");
 const placeInput = document.getElementById("officialPlace");
-const searchButton = document.getElementById("officialSearchButton");
 const currentButton = document.getElementById("officialCurrentButton");
 const resetButton = document.getElementById("officialReset");
 const listTitle = document.getElementById("officialListTitle");
@@ -25,12 +25,24 @@ const ORDER_TITLES = {
 let requestId = 0;
 let lastOrigin = null;
 let originLookup = null;
+let searching = false;
+let picker = null;
 
+// 위치 칸은 메뉴 추천과 같아요: 칸을 누르면 카카오 장소 검색 창이 열리고, 고르면 바로 그곳 근처를 찾아요.
+// 카카오를 못 불러오면 칸에 직접 적고 Enter 로 찾아요. 칸 안 오른쪽 단추는 현재 위치로 찾아요.
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
-	searchNearby(false);
+	searchFromInput();
 });
-currentButton.addEventListener("click", () => searchNearby(true));
+placeInput.addEventListener("click", () => {
+	if (placeInput.readOnly) {
+		searchFromInput();
+	}
+});
+currentButton.addEventListener("click", () => {
+	const before = placeInput.value;
+	searchNearby(currentPosition(), "현재 위치를 확인하고 있어요.", (origin) => showAddress(origin, before));
+});
 resetButton.addEventListener("click", loadTopPicks);
 form.addEventListener("change", (event) => {
 	if (event.target.name === "price") {
@@ -76,16 +88,41 @@ async function loadTopPicks() {
 	}
 }
 
-async function searchNearby(useCurrentPosition) {
+// 위치 칸을 눌렀거나 Enter 를 쳤을 때. 장소 검색 창이 안 되면(카카오 오류) 칸에 적은 말로 찾아요.
+function searchFromInput() {
+	if (searching) {
+		return;
+	}
+	if (placeInput.readOnly) {
+		choosePlace();
+		return;
+	}
 	const place = placeInput.value.trim();
-	if (!useCurrentPosition && !place) {
+	if (!place) {
 		showStatus("동네나 역 이름을 입력해 주세요.", "error");
 		placeInput.focus();
 		return;
 	}
+	searchNearby(geocode(place), place + " 근처를 찾고 있어요.");
+}
+
+// 카카오 장소 검색 창에서 고른 곳 근처를 찾아요. 카카오를 못 불러오면 위치 칸에 직접 적는 방식으로 돌아가요.
+async function choosePlace() {
+	picker ??= initPlacePicker(document.getElementById("placePicker"));
+	const chosen = await picker.open(placeInput.value.trim());
+	if (chosen) {
+		placeInput.value = chosen.label;
+		searchNearby(Promise.resolve(chosen), chosen.label + " 근처를 찾고 있어요.");
+	} else if (picker.failed) {
+		placeInput.readOnly = false;
+		placeInput.focus();
+	}
+}
+
+// lookup 은 찾을 곳({ label, lat, lng })을 돌려줘요. onFound 는 찾을 곳을 알아낸 뒤에 불러요.
+async function searchNearby(lookup, message, onFound = null) {
 	const id = ++requestId;
-	setLoading(useCurrentPosition ? "현재 위치를 확인하고 있어요." : place + " 근처를 찾고 있어요.", true, useCurrentPosition);
-	const lookup = useCurrentPosition ? currentPosition() : geocode(place);
+	setLoading(message, true);
 	lastOrigin = null;
 	originLookup = lookup;
 	try {
@@ -93,6 +130,7 @@ async function searchNearby(useCurrentPosition) {
 		if (id !== requestId) {
 			return;
 		}
+		onFound?.(origin);
 		lastOrigin = origin;
 		await showNearby(origin, id);
 	} catch (error) {
@@ -103,6 +141,14 @@ async function searchNearby(useCurrentPosition) {
 		showSearchError(id, error);
 	} finally {
 		unlockSearch(id);
+	}
+}
+
+// 현재 위치로 찾으면 그 주소를 위치 칸에 넣어 둬요. 주소를 기다리지 않고 먼저 찾고, 그사이 칸을 바꿨으면 덮어쓰지 않아요.
+async function showAddress(origin, before) {
+	const address = await addressOf(origin);
+	if (address && placeInput.value === before) {
+		placeInput.value = address;
 	}
 }
 
@@ -159,10 +205,8 @@ function showSearchError(id, error) {
 
 function unlockSearch(id) {
 	if (id === requestId) {
-		searchButton.disabled = false;
-		searchButton.textContent = "근처 찾기";
+		searching = false;
 		currentButton.disabled = false;
-		currentButton.textContent = "현재 위치로 찾기";
 	}
 }
 
@@ -283,13 +327,11 @@ function pickItem(pick, rank, origin) {
 	return item;
 }
 
-function setLoading(message, searching, useCurrentPosition = false) {
+function setLoading(message, busy) {
 	list.replaceChildren();
 	showStatus(message, "loading");
-	searchButton.disabled = searching;
-	currentButton.disabled = searching;
-	searchButton.textContent = searching && !useCurrentPosition ? "찾고 있어요…" : "근처 찾기";
-	currentButton.textContent = searching && useCurrentPosition ? "위치 확인 중…" : "현재 위치로 찾기";
+	searching = busy;
+	currentButton.disabled = busy;
 }
 
 function showStatus(message, state) {

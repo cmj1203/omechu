@@ -2,7 +2,8 @@
 // Maps JavaScript API·Places API (New)로만 쓰게 묶어 두어야 해요. 비워 두면 평점을 찾지 않고 가까운 순으로만 골라요.
 const GOOGLE_MAPS_KEY = "AIzaSyA244zFyylVze0SW0Z_NzW50vqQ4E40Atc";
 const SDK_CALLBACK = "omechuGoogleMapsReady";
-const SDK_URL = "https://maps.googleapis.com/maps/api/js?v=weekly&loading=async&language=ko&region=KR&callback=" + SDK_CALLBACK + "&key=" + GOOGLE_MAPS_KEY;
+// Place.isOpen()은 beta 채널에서만 호출할 수 있어요.
+const SDK_URL = "https://maps.googleapis.com/maps/api/js?v=beta&loading=async&language=ko&region=KR&callback=" + SDK_CALLBACK + "&key=" + GOOGLE_MAPS_KEY;
 
 // 리뷰가 이만큼은 있어야 평점을 믿고 써요. 적으면 평점이 없는 가게와 같게 봐요.
 export const MIN_REVIEWS = 10;
@@ -22,7 +23,7 @@ const cache = new Map();
 // 가게마다 { rating, reviews, openNow, closedForGood, hours } 를, 구글에서 같은 가게를 못 찾으면 null 을,
 // 묻지 못했으면(키 없음·오류·시간 초과) undefined 를 돌려줘요. rating 은 평점이 없으면 null,
 // openNow 는 지금 영업 중이면 true, 아니면 false, 영업시간을 모르면 undefined 예요.
-// hours 는 오늘 영업시간 글("11:00~21:00", 쉼는 시간이 있으면 ", "로 이어요)이고, 영업시간을 모르거나 오늘 쉬면 null 이에요.
+// hours 는 휴일 예외를 반영한 오늘 영업시간 글("11:00~21:00", 쉬는 시간이 있으면 ", "로 이어요)이고, 모르거나 오늘 쉬면 null 이에요.
 // 같은 가게는 이 화면을 연 동안 다시 묻지 않아요(실패한 가게는 다음에 다시 물어요).
 export function lookupRatings(places) {
 	return Promise.all(places.map((place) => lookupRating(place)));
@@ -55,7 +56,7 @@ async function findRating(place) {
 	const { Place } = await loadPlaces();
 	const { places } = await Place.searchByText({
 		textQuery: place.name,
-		fields: ["displayName", "location", "rating", "userRatingCount", "businessStatus", "regularOpeningHours", "utcOffsetMinutes"],
+		fields: ["displayName", "location", "rating", "userRatingCount", "businessStatus", "regularOpeningHours", "currentOpeningHours", "utcOffsetMinutes"],
 		locationBias: { center: { lat: place.lat, lng: place.lng }, radius: MATCH_RADIUS_METERS },
 		maxResultCount: 5,
 	});
@@ -74,25 +75,45 @@ async function findRating(place) {
 		reviews: same.userRatingCount ?? 0,
 		openNow: closedForGood ? false : await openNow(same),
 		closedForGood,
-		hours: todayHours(same.regularOpeningHours),
+		hours: todayHours(same.currentOpeningHours, same.utcOffsetMinutes),
 	};
 }
 
-// 오늘 요일의 영업시간 글. 구글은 요일마다 여는 시각·닫는 시각 쌍(periods)을 주고, 24시간 영업은 닫는 시각이 없어요.
-// 영업시간이 없거나 오늘 여는 시간이 없으면 null 이에요.
-function todayHours(openingHours) {
+// 가게 현지 날짜의 영업시간. 전날부터 이어진 영업은 자정부터 표시해요.
+// 구글은 24시간 영업을 일요일 자정에 열고 닫는 시각이 없는 기간으로 표시해요.
+function todayHours(openingHours, utcOffsetMinutes) {
 	const periods = openingHours?.periods;
 	if (!Array.isArray(periods)) {
 		return null;
 	}
-	const today = new Date().getDay();
 	if (periods.some((period) => period.open?.day === 0 && period.open.hour === 0 && period.open.minute === 0 && !period.close)) {
 		return "24시간";
 	}
+	if (typeof utcOffsetMinutes !== "number") {
+		return null;
+	}
+	const today = new Date(Date.now() + utcOffsetMinutes * 60000).getUTCDay();
 	const spans = periods
-		.filter((period) => period.open?.day === today && period.close)
-		.map((period) => clock(period.open) + "~" + clock(period.close));
-	return spans.length > 0 ? spans.join(", ") : null;
+		.flatMap(({ open, close }) => {
+			if (!open || !close) {
+				return [];
+			}
+			const elapsedDays = (today - open.day + 7) % 7;
+			const durationDays = (close.day - open.day + 7) % 7;
+			if (elapsedDays > durationDays) {
+				return [];
+			}
+			if (elapsedDays === 0) {
+				return [{ start: open.hour * 60 + open.minute, text: clock(open) + "~" + clock(close) }];
+			}
+			if (elapsedDays < durationDays) {
+				return [{ start: 0, text: "24시간" }];
+			}
+			return close.hour === 0 && close.minute === 0
+				? [] : [{ start: 0, text: "00:00~" + clock(close) }];
+		})
+		.sort((a, b) => a.start - b.start);
+	return spans.length > 0 ? spans.map((span) => span.text).join(", ") : null;
 }
 
 function clock(point) {

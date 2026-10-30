@@ -50,3 +50,20 @@ test("모든 화면의 입력칸은 16px 이상이라 iOS가 확대하지 않는
 		}
 	}
 });
+
+test("뺀 메뉴의 X는 44px로 누를 수 있고 전체 목록은 화면 안에서 줄바꿈한다", async ({ page }) => {
+	await recommend(page);
+	for (let index = 0; index < 5; index += 1) {
+		await page.getByRole("button", { name: "메뉴 빼기", exact: true }).click();
+	}
+	await page.locator("#skippedMenus summary").click();
+	const buttons = page.locator(".skipped-restore");
+	await expect(buttons).toHaveCount(5);
+	for (const button of await buttons.all()) {
+		expect(await button.evaluate(tapHeight)).toBeGreaterThanOrEqual(43);
+		const box = await button.boundingBox();
+		expect(box.width).toBeGreaterThanOrEqual(44);
+	}
+	const overflow = await page.locator(".skipped-list").evaluate((list) => list.scrollWidth - list.clientWidth);
+	expect(overflow).toBe(0);
+});

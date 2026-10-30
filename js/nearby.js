@@ -78,6 +78,19 @@ export function initNearby(section) {
 			searchId += 1;
 			section.hidden = true;
 		},
+		// 같이 정하기에서 정한 모일 곳({ label, lat, lng })을 위치 칸에 넣어, 다음 추천이 그 좌표로 찾게 해요.
+		// 위치 칸 글자와 맞는 좌표를 이미 알면 돌려줘요(장소 창에서 고른 곳·현재 위치). 모르면 null.
+		knownOrigin() {
+			const typed = placeInput.value.trim();
+			return pickedOrigin && typed && (pickedOrigin.inputText ?? pickedOrigin.label) === typed
+				? { label: typed, lat: pickedOrigin.lat, lng: pickedOrigin.lng }
+				: null;
+		},
+		setOrigin(origin) {
+			pickedOrigin = origin;
+			originLookup = null;
+			placeInput.value = origin.label;
+		},
 	};
 
 	async function start() {

@@ -10,7 +10,8 @@
 	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 	<link rel="stylesheet" href="css/style.css">
-	<script type="module" src="js/official.js"></script>
+	<!-- 위치 칸을 메인처럼 바꾸며 옛 단추를 지웠어요. 캐시에 남은 옛 official.js 는 그 단추를 찾다 멈춰서, 주소 끝을 바꿔 새 파일을 받게 해요 -->
+	<script type="module" src="js/official.js?v=20261030"></script>
 </head>
 <body>
 	<nav class="tabs official-tabs">
@@ -32,11 +33,10 @@
 
 		<form id="officialSearch" class="official-search">
 			<label for="officialPlace">어디에서 찾을까요?</label>
-			<div class="official-search-row">
-				<input type="text" id="officialPlace" name="place" placeholder="동네·역 이름 (예: 시청역)">
-				<button type="submit" id="officialSearchButton" class="official-search-button">근처 찾기</button>
+			<div class="nearby-form">
+				<input type="text" id="officialPlace" name="place" placeholder="동네·역 검색 (예: 시청역)" enterkeyhint="search" readonly>
+				<button type="button" id="officialCurrentButton" class="nearby-locate" aria-label="현재 위치로 찾기" title="현재 위치로 찾기"></button>
 			</div>
-			<button type="button" id="officialCurrentButton" class="official-search-button">현재 위치로 찾기</button>
 			<fieldset class="choices official-filter">
 				<legend>1인 가격</legend>
 				<div class="options">
@@ -65,5 +65,17 @@
 			<ol id="officialList" class="official-list"></ol>
 		</section>
 	</main>
+	<dialog id="placePicker" class="place-picker" aria-label="위치 찾기">
+		<search class="place-picker-head">
+			<form class="place-picker-form">
+				<input type="search" name="q" aria-label="위치 검색" placeholder="역·동네·건물 이름" enterkeyhint="search" autocomplete="off">
+				<button type="submit">검색</button>
+			</form>
+			<button type="button" class="place-picker-close">닫기</button>
+		</search>
+		<div class="place-picker-map" hidden></div>
+		<p class="place-picker-message" hidden></p>
+		<ol class="place-picker-results"></ol>
+	</dialog>
 </body>
 </html>

@@ -15,6 +15,7 @@
 	--error: #c13515;
 	--open: #17803d;
 	--focus: #222222;
+	--icon-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
 	--radius-xs: 6px;
 	--radius-sm: 8px;
 	--radius-md: 14px;
@@ -272,11 +273,91 @@ a.text-button {
 	font-size: 13px;
 }
 
+.skipped-menus {
+	width: 100%;
+	margin: 0 0 12px;
+	color: var(--ash);
+	font-size: 13px;
+}
+
+.skipped-menus summary {
+	width: fit-content;
+	min-height: 44px;
+	margin: 0 auto;
+	padding: 12px;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.skipped-list {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.skipped-list li {
+	display: flex;
+	align-items: center;
+	max-width: 100%;
+	padding-left: 12px;
+	border-radius: var(--radius-full);
+	background: var(--cloud);
+	color: var(--ink-soft);
+	font-size: 14px;
+}
+
+.skipped-menu-name {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.skipped-restore {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--ash);
+	cursor: pointer;
+}
+
+.skipped-restore::before {
+	content: "";
+	width: 14px;
+	height: 14px;
+	background: currentColor;
+	-webkit-mask: var(--icon-close) center / contain no-repeat;
+	mask: var(--icon-close) center / contain no-repeat;
+}
+
+.skipped-menus summary:focus-visible,
+.skipped-restore:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+@media (hover: hover) {
+	.skipped-menus summary:hover,
+	.skipped-restore:hover {
+		color: var(--ink);
+	}
+}
+
 .nearby {
 	width: 100%;
 }
 
-/* 위치 칸 하나가 찾기 단추 노릇을 해요. 누르면 장소 검색 창이 열리고, 고르면 바로 추천해요. 왼쪽 돋보기로 누를 수 있는 칸인 걸 보여 줘요 */
+/* 위치 칸 하나가 찾기 단추 노릇을 해요(메뉴 추천·공무원 맛집). 누르면 장소 검색 창이 열리고, 고르면 바로 찾아요. 왼쪽 돋보기로 누를 수 있는 칸인 걸 보여 줘요 */
 .nearby-form {
 	position: relative;
 	width: min(100%, 300px);
@@ -298,7 +379,9 @@ a.text-button {
 	mask: var(--icon-search) center / contain no-repeat;
 }
 
-#nearbyPlace {
+#nearbyPlace,
+#officialPlace,
+#pollPlace {
 	width: 100%;
 	height: 48px;
 	padding: 0 48px 0 40px;
@@ -312,19 +395,25 @@ a.text-button {
 }
 
 #nearbyPlace::placeholder,
+#officialPlace::placeholder,
+#pollPlace::placeholder,
 .panel input::placeholder,
 .table-search::placeholder {
 	color: var(--ash);
 	opacity: 1;
 }
 
-#nearbyPlace:focus {
+#nearbyPlace:focus,
+#officialPlace:focus,
+#pollPlace:focus {
 	outline: none;
 	border-color: var(--ink);
 	box-shadow: 0 0 0 1px var(--ink);
 }
 
-#nearbyPlace[readonly] {
+#nearbyPlace[readonly],
+#officialPlace[readonly],
+#pollPlace[readonly] {
 	cursor: pointer;
 }
 
@@ -1779,6 +1868,26 @@ a.small {
 	text-decoration: none;
 }
 
+/* 기본으로 뺄 메뉴 고르기: 메뉴 고르는 칸과 '넣기' 단추 한 줄 */
+.exclude-form {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+.exclude-form select {
+	flex: 1;
+	min-width: 0;
+	height: 40px;
+	padding: 0 12px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
+	background: var(--canvas);
+	color: var(--ink);
+	font: inherit;
+	font-size: 15px;
+}
+
 @media (hover: hover) {
 	.account-page .place-name:hover {
 		text-decoration: underline;
@@ -1839,34 +1948,9 @@ a.small {
 	font-weight: 700;
 }
 
-.official-search-row {
-	display: flex;
-	gap: 8px;
-}
-
-#officialPlace {
-	flex: 1;
-	min-width: 0;
-	height: 48px;
-	padding: 0 14px;
-	border: 1px solid var(--hairline);
-	border-radius: var(--radius-md);
-	background: var(--canvas);
-	color: var(--ink);
-	font: inherit;
-	font-size: 15px;
-	transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
-}
-
-#officialPlace::placeholder {
-	color: var(--ash);
-	opacity: 1;
-}
-
-#officialPlace:focus {
-	outline: none;
-	border-color: var(--ink);
-	box-shadow: 0 0 0 1px var(--ink);
+/* 메뉴 추천의 위치 칸(.nearby-form)을 그대로 쓰고, 카드 폭에 맞춰 넓혀요 */
+.official-search .nearby-form {
+	width: 100%;
 }
 
 .official-source-link:focus-visible,
@@ -1875,72 +1959,7 @@ a.small {
 	outline-offset: 2px;
 }
 
-.official-search-button {
-	--icon: var(--icon-pin);
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	gap: 6px;
-	height: 48px;
-	padding: 0 18px;
-	border: 0;
-	border-radius: var(--radius-md);
-	background: var(--ink);
-	color: var(--canvas);
-	font: inherit;
-	font-size: 15px;
-	font-weight: 700;
-	cursor: pointer;
-	transition: background-color 0.15s ease-out, transform 0.1s ease-out;
-}
-
-.official-search-button::before {
-	content: "";
-	width: 17px;
-	height: 17px;
-	background: currentColor;
-	-webkit-mask: var(--icon) center / contain no-repeat;
-	mask: var(--icon) center / contain no-repeat;
-}
-
-.official-search-button:active {
-	transform: scale(0.97);
-}
-
-.official-search-button:focus-visible {
-	outline: 2px solid var(--focus);
-	outline-offset: 2px;
-}
-
-.official-search-button:disabled {
-	background: var(--ash);
-	cursor: wait;
-}
-
-.official-search-button:disabled::before {
-	display: none;
-}
-
-#officialCurrentButton {
-	justify-self: start;
-	border: 1px solid var(--hairline);
-	background: var(--canvas);
-	color: var(--ink);
-}
-
-#officialCurrentButton:disabled {
-	color: var(--ash);
-}
-
 @media (hover: hover) {
-	#officialSearchButton:hover:not(:disabled) {
-		background: var(--ink-strong);
-	}
-
-	#officialCurrentButton:hover:not(:disabled) {
-		background: var(--cloud);
-	}
-
 	.official-links a:hover {
 		border-color: var(--ink);
 	}
@@ -1978,7 +1997,6 @@ a.small {
 
 .official-results .text-button {
 	flex: none;
-	padding-right: 0;
 }
 
 .official-status {
@@ -2113,19 +2131,6 @@ a.small {
 		padding: 16px;
 	}
 
-	.official-search-row {
-		flex-direction: column;
-	}
-
-	#officialPlace {
-		flex: none;
-	}
-
-	.official-search-button {
-		justify-content: center;
-		width: 100%;
-	}
-
 	.official-pick {
 		grid-template-columns: 24px minmax(0, 1fr);
 		gap: 6px;
@@ -2143,18 +2148,12 @@ a.small {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.official-search-button:active {
-		transform: none;
-	}
-}
-
 /* 휴대폰 최적화: iOS·안드로이드 기준(누르는 곳 44px 이상, 입력칸 16px 이상, 글자 13px 이상)에 맞춰요.
    칩·단추는 보이는 크기를 글자에 맞게 작게 두고, 누르는 곳만 투명한 ::after 로 44px까지 넓혀요(앱들이 쓰는 방식).
    다른 규칙보다 뒤에 두어서 같은 무게의 선택자면 이쪽이 이겨요 */
 @media (max-width: 480px) {
 	/* iOS 사파리는 16px보다 작은 입력칸을 누르면 화면을 확대해서, 휴대폰에서는 모든 입력칸을 16px로 둬요.
-	   칸마다 따로 정한 글자 크기(#officialPlace 등)보다 앞서야 해서 !important 를 써요 */
+	   칸마다 따로 정한 글자 크기(위치 칸 등)보다 앞서야 해서 !important 를 써요 */
 	input:not([type="radio"]):not([type="checkbox"]),
 	select,
 	textarea {
@@ -2262,21 +2261,7 @@ a.small {
 		font-size: 15px;
 	}
 
-	/* 공무원 맛집의 가격·순서 칩은 한 줄로 두고 옆으로 밀어 봐요(배달·지도 앱의 필터 칩처럼). 카드 끝까지 밀리게 오른쪽 여백을 써요 */
-	.official-filter .options {
-		flex-wrap: nowrap;
-		overflow-x: auto;
-		/* 옆으로 미는 줄은 위아래도 잘라서, 키보드 초점 테두리가 보이게 위아래 4px 여유를 둬요 */
-		margin: -4px -16px -4px 0;
-		padding: 4px 16px 4px 0;
-		scrollbar-width: none;
-		-webkit-overflow-scrolling: touch;
-	}
-
-	.official-filter .options::-webkit-scrollbar {
-		display: none;
-	}
-
+	/* 공무원 맛집의 가격·순서 칩은 폰에서 줄을 바꿔 모두 보여요(사용자 10-30: 옆으로 미는 줄은 끝 칩이 잘려 보였음) */
 	.official-filter .options label {
 		flex: none;
 	}

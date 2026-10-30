@@ -90,8 +90,7 @@
 	transition: color 0.15s ease-out;
 }
 
-.vote-chip-remove::before,
-.vote-option[aria-pressed="true"] .vote-option-name::before {
+.vote-chip-remove::before {
 	content: "";
 	flex: none;
 	width: 14px;
@@ -200,39 +199,87 @@
 	list-style: none;
 }
 
-.vote-option {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	column-gap: 12px;
-	row-gap: 10px;
-	align-items: center;
+/* 모일 곳 칸은 메뉴 추천의 위치 칸(.nearby-form)을 그대로 쓰고 카드 폭에 맞춰요 */
+.vote-place {
 	width: 100%;
-	padding: 14px 16px;
+	margin: 0 0 20px;
+}
+
+.vote-area {
+	margin: 0 0 16px;
+	color: var(--ash);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: center;
+}
+
+.vote-answer fieldset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.vote-checks {
+	display: grid;
+	gap: 8px;
+	margin: 0 0 16px;
+}
+
+.vote-check {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 52px;
+	padding: 0 16px;
 	border: 1px solid var(--hairline);
 	border-radius: var(--radius-md);
 	background: var(--canvas);
-	color: var(--ink);
-	font: inherit;
-	text-align: left;
+	font-size: 17px;
+	font-weight: 700;
+	overflow-wrap: anywhere;
 	cursor: pointer;
-	transition: border-color 0.15s ease-out, transform 0.1s ease-out;
+	transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
 }
 
-.vote-option:active:not(:disabled) {
-	transform: scale(0.97);
+.vote-check input {
+	flex: none;
+	width: 20px;
+	height: 20px;
+	margin: 0;
+	accent-color: var(--ink);
 }
 
-.vote-option:focus-visible {
+.vote-check:has(input:checked) {
+	border-color: var(--ink);
+	background: var(--cloud);
+}
+
+.vote-check:has(input:focus-visible) {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
 }
 
-.vote-option:disabled {
-	cursor: wait;
+.vote-answer .vote-create,
+.vote-go {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 0 auto;
+	text-decoration: none;
+}
+
+.vote-result {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	min-height: 52px;
+	padding: 8px 16px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-md);
 }
 
 .vote-option-name {
-	--icon: var(--icon-check);
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -243,11 +290,6 @@
 	overflow-wrap: anywhere;
 }
 
-.vote-option[aria-pressed="true"] .vote-option-name::before {
-	width: 17px;
-	height: 17px;
-}
-
 .vote-option-count {
 	color: var(--ash);
 	font-size: 13px;
@@ -256,52 +298,49 @@
 	white-space: nowrap;
 }
 
-.vote-option-bar {
-	grid-column: 1 / -1;
-	height: 8px;
-	overflow: hidden;
-	border-radius: var(--radius-full);
-	background: var(--cloud);
+.vote-result .vote-option-name {
+	flex: 1;
 }
 
-/* 막대 길이는 폭 대신 transform 으로 바꿔서 레이아웃을 다시 계산하지 않아요 */
-.vote-option-bar::after {
+.vote-result.is-common .vote-option-name::before {
 	content: "";
-	display: block;
-	width: 100%;
-	height: 100%;
-	border-radius: inherit;
-	background: var(--ash);
-	transform: scaleX(var(--ratio, 0));
-	transform-origin: left;
-	transition: transform 0.15s ease-out;
+	flex: none;
+	width: 17px;
+	height: 17px;
+	background: currentColor;
+	-webkit-mask: var(--icon-check) center / contain no-repeat;
+	mask: var(--icon-check) center / contain no-repeat;
 }
 
-.vote-option.is-leader .vote-option-bar::after {
-	background: var(--ink);
-}
-
-.vote-option.is-leader .vote-option-count {
+.vote-result.is-common .vote-option-count {
 	color: var(--ink);
 	font-weight: 700;
 }
 
-.vote-leader-link {
-	display: inline-flex;
-	align-items: center;
-	min-height: 40px;
-	margin-left: 16px;
-	color: var(--ink);
-	font-size: 14px;
-	font-weight: 600;
-	text-decoration: underline;
-	text-underline-offset: 3px;
+.vote-confirm {
+	flex: none;
+	justify-content: center;
 }
 
-.vote-leader-link:focus-visible {
-	outline: 2px solid var(--focus);
-	outline-offset: 2px;
-	border-radius: var(--radius-xs);
+.vote-confirmed {
+	text-align: center;
+}
+
+/* 정한 뒤에는 마감 줄이 없어서, 그 자리만큼 제목 아래를 띄워요 */
+#pollView .headline:has(+ .vote-deadline:empty) {
+	margin-bottom: 20px;
+}
+
+#resultNote:empty {
+	display: none;
+}
+
+.vote-confirmed .vote-label {
+	margin-bottom: 0;
+}
+
+.vote-confirmed .menu-name {
+	margin-bottom: 16px;
 }
 
 .vote-actions {
@@ -370,12 +409,8 @@
 		background: var(--cloud);
 	}
 
-	.vote-option:hover:not(:disabled) {
+	.vote-check:hover {
 		border-color: var(--ink);
-	}
-
-	.vote-leader-link:hover {
-		text-decoration-thickness: 2px;
 	}
 
 	.vote-share:hover,
@@ -389,26 +424,16 @@
 		padding: 16px;
 	}
 
-	.vote-option {
-		padding: 12px 14px;
-	}
-
-	.vote-option-name {
+	.vote-check,
+	.vote-result {
+		padding-right: 14px;
+		padding-left: 14px;
 		font-size: 16px;
-	}
-
-	.vote-leader-link {
-		margin-left: 14px;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.vote-add-button:active:not(:disabled),
-	.vote-option:active:not(:disabled) {
+	.vote-add-button:active:not(:disabled) {
 		transform: none;
-	}
-
-	.vote-option-bar::after {
-		transition: none;
 	}
 }

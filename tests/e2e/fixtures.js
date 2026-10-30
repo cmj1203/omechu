@@ -28,11 +28,11 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/cs
 // 실제 권한(RLS)은 tests/db 의 SQL 테스트가 보고, 여기서는 화면이 부르는 방식만 맞춰요.
 const fakeSupabase = (places) => `
 const PLACES = ${JSON.stringify(places)};
-const OWN = ["favorite_places", "recent_places"];
+const OWN = ["favorite_places", "recent_places", "excluded_menus"];
 const load = () => JSON.parse(localStorage.getItem("__fakedb") || '{"users":[],"admins":[]}');
 const save = (db) => localStorage.setItem("__fakedb", JSON.stringify(db));
 const session = () => JSON.parse(localStorage.getItem("__fakesession") || "null");
-const same = (a, b) => a.name === b.name && a.lat === b.lat && a.lng === b.lng;
+const same = (a, b) => a.name === b.name && a.lat === b.lat && a.lng === b.lng && a.menu === b.menu;
 class Query {
 	constructor(table) { this.table = table; this.filters = []; this.op = "select"; }
 	select() { return this; }
@@ -76,6 +76,46 @@ class Query {
 		return { data: this.single ? out[0] ?? null : out, error: null };
 	}
 }
+// 같이 정하기 rpc 흉내(supabase/migrations/20261030130000_menu_poll_consensus.sql 과 같은 규칙). 투표는 localStorage 에 둬요.
+function fakePoll(name, args) {
+	const polls = JSON.parse(localStorage.getItem("__fakepolls") || "{}");
+	const fail = (code, message) => ({ data: null, error: { code, message } });
+	const savePolls = () => localStorage.setItem("__fakepolls", JSON.stringify(polls));
+	if (name === "create_menu_poll") {
+		const id = crypto.randomUUID();
+		const host_token = crypto.randomUUID();
+		polls[id] = { options: args.p_options, area: { label: args.p_area_label, lat: args.p_area_lat, lng: args.p_area_lng }, host_token,
+			responses: {}, confirmed_index: null, expires_at: new Date(Date.now() + 86400000).toISOString() };
+		savePolls();
+		return { data: [{ id, host_token }], error: null };
+	}
+	const poll = polls[args.p_poll];
+	const answers = poll ? Object.values(poll.responses) : [];
+	const common = poll ? poll.options.map((_, i) => i).filter((i) => answers.length > 0 && answers.every((a) => a.includes(i))) : [];
+	if (name === "menu_poll_state") {
+		if (!poll) return { data: null, error: null };
+		const mine = poll.responses[args.p_voter] ?? null;
+		const isHost = args.p_host_token === poll.host_token;
+		const open = mine !== null || isHost;
+		return { data: { id: args.p_poll, options: poll.options, area: poll.area, expires_at: poll.expires_at, confirmed_index: poll.confirmed_index,
+			is_host: isHost, mine, responders: open ? answers.length : null,
+			counts: open ? poll.options.map((_, i) => answers.filter((a) => a.includes(i)).length) : null, common: open ? common : null }, error: null };
+	}
+	if (name === "submit_menu_poll_response") {
+		if (poll.confirmed_index !== null) return fail("P0001", "이미 메뉴를 정했어요.");
+		poll.responses[args.p_voter] = [...new Set(args.p_accepted)].sort();
+		savePolls();
+		return { data: null, error: null };
+	}
+	if (name === "confirm_menu_poll") {
+		if (!poll || poll.host_token !== args.p_host_token) return fail("42501", "만든 사람만 정할 수 있어요.");
+		if (!common.includes(args.p_index)) return fail("P0001", "모두 먹을 수 있는 후보가 아니에요.");
+		poll.confirmed_index = args.p_index;
+		savePolls();
+		return { data: null, error: null };
+	}
+	return fail("PGRST202", "no such function");
+}
 export function createClient() {
 	return {
 		from: (table) => new Query(table),
@@ -118,6 +158,9 @@ export function createClient() {
 				for (const table of OWN) db[table] = (db[table] || []).filter((r) => r.user_id !== uid);
 				save(db);
 			}
+			if (name.includes("menu_poll")) {
+				result = fakePoll(name, args);
+			}
 			const promise = Promise.resolve(result);
 			promise.abortSignal = () => promise;
 			return promise;
@@ -128,26 +171,35 @@ export function createClient() {
 // 구글 지도 JavaScript API 흉내: Place.searchByText 만. 같은 이름 앞말의 PLACES 정보를 돌려줘요.
 const fakeGoogle = (places) => `(() => {
 	const PLACES = ${JSON.stringify(places)};
+	const channel = new URL(document.currentScript.src).searchParams.get("v");
 	window.__googleCalls = 0;
 	window.google = { maps: { importLibrary: async () => ({ Place: { searchByText: async (q) => {
 		window.__googleCalls += 1;
 		const spec = PLACES.find(([prefix]) => q.textQuery.startsWith(prefix));
 		const info = spec?.[2];
 		if (!info) return { places: [] };
+		const regularHours = info.hours ? { periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+			open: { day, hour: info.hours[0][0], minute: info.hours[0][1] },
+			close: { day, hour: info.hours[1][0], minute: info.hours[1][1] },
+		})) } : undefined;
+		const currentHours = info.currentPeriods === undefined ? regularHours
+			: info.currentPeriods === null ? undefined : { periods: info.currentPeriods };
 		return { places: [{
 			displayName: q.textQuery,
 			location: { lat: () => q.locationBias.center.lat, lng: () => q.locationBias.center.lng },
 			rating: info.rating, userRatingCount: info.reviews,
 			businessStatus: info.status ?? "OPERATIONAL",
-			isOpen: async () => info.open,
-			regularOpeningHours: info.hours ? { periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-				open: { day, hour: info.hours[0][0], minute: info.hours[0][1] },
-				close: { day, hour: info.hours[1][0], minute: info.hours[1][1] },
-			})) } : undefined,
+			utcOffsetMinutes: 540,
+			isOpen: async () => {
+				if (channel !== "beta") throw new Error("isOpen requires the beta channel");
+				return info.open;
+			},
+			regularOpeningHours: q.fields.includes("regularOpeningHours") ? regularHours : undefined,
+			currentOpeningHours: q.fields.includes("currentOpeningHours") ? currentHours : undefined,
 		}] };
 	} } }) } };
 	const callback = new URL(document.currentScript.src).searchParams.get("callback");
-	setTimeout(() => window[callback](), 0);
+	queueMicrotask(() => window[callback]());
 })();`;
 
 // 카카오 지도 SDK 흉내: 장소 검색(강남역 하나), 좌표 → 주소, 지도 그리기는 아무것도 안 해요.
@@ -178,7 +230,8 @@ const fakeKakao = `(() => {
 export const test = base.extend({
 	// googleKey: false 면 js/place-rating.js 의 키를 비운 채로 둬요(평점 기능 꺼짐).
 	googleKey: [true, { option: true }],
-	context: async ({ context, googleKey }, use) => {
+	places: [PLACES, { option: true }],
+	context: async ({ context, googleKey, places }, use) => {
 		await context.route("**/*", (route) => {
 			const url = new URL(route.request().url());
 			if (url.hostname === "app.test") {
@@ -191,10 +244,10 @@ export const test = base.extend({
 				return route.fulfill({ contentType: (TYPES[extname(path)] ?? "application/octet-stream") + "; charset=utf-8", body });
 			}
 			if (url.hostname === "cdn.jsdelivr.net" && url.pathname.includes("supabase-js")) {
-				return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: fakeSupabase(PLACES) });
+				return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: fakeSupabase(places) });
 			}
 			if (url.hostname === "maps.googleapis.com") {
-				return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: fakeGoogle(PLACES) });
+				return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: fakeGoogle(places) });
 			}
 			if (url.hostname === "dapi.kakao.com") {
 				return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: fakeKakao });

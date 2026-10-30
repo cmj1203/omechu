@@ -5,6 +5,7 @@ import { getSupabase } from "./supabase.js";
 const RECENT_LIMIT = 30;
 
 let favorites = null;
+let excluded = null;
 
 export function placeId(place) {
 	return place.name + "|" + place.lat + "|" + place.lng;
@@ -76,6 +77,45 @@ export async function recordView(place) {
 	if (error) {
 		console.warn("최근 본 가게를 남기지 못했어요.", error);
 	}
+}
+
+// 기본으로 뺄 메뉴(excluded_menus 표)의 이름 묶음. 로그인하지 않았으면 null 이에요. 한 화면에서 한 번만 불러와요.
+export function excludedMenus() {
+	excluded ??= (async () => {
+		const member = await signedIn();
+		if (!member) {
+			return null;
+		}
+		const { data, error } = await member.supabase.from("excluded_menus").select("menu").order("created_at");
+		if (error) {
+			console.warn("기본으로 뺄 메뉴를 불러오지 못했어요.", error);
+			return new Set();
+		}
+		return new Set(data.map((row) => row.menu));
+	})();
+	return excluded;
+}
+
+// on 이면 기본으로 뺄 메뉴에 넣고, 아니면 빼요. 로그인하지 않았으면 "signed-out", 실패하면 오류를 던져요.
+export async function setExcluded(menuName, on) {
+	const member = await signedIn();
+	if (!member) {
+		return "signed-out";
+	}
+	const table = member.supabase.from("excluded_menus");
+	const { error } = on
+		? await table.insert({ menu: menuName })
+		: await table.delete().eq("menu", menuName);
+	if (error && error.code !== "23505") {
+		throw error;
+	}
+	const names = await excludedMenus();
+	if (on) {
+		names?.add(menuName);
+	} else {
+		names?.delete(menuName);
+	}
+	return "saved";
 }
 
 export async function listFavorites(supabase) {

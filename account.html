@@ -57,6 +57,16 @@
 			</section>
 
 			<section class="panel">
+				<h2>기본으로 뺄 메뉴 <span id="excludedCount" class="panel-count"></span></h2>
+				<form id="excludeForm" class="exclude-form">
+					<select id="excludeSelect" aria-label="뺄 메뉴" required></select>
+					<button type="submit" class="small">넣기</button>
+				</form>
+				<ul id="excludedList" class="place-list"></ul>
+				<p id="excludedEmpty" class="panel-help" hidden>여기 넣은 메뉴는 메뉴 추천에서 늘 빠져요.</p>
+			</section>
+
+			<section class="panel">
 				<h2>최근 본 가게</h2>
 				<ul id="recentList" class="place-list"></ul>
 				<p id="recentEmpty" class="panel-help" hidden>가게 이름이나 지도를 열면 여기에 최근 30곳이 남아요.</p>

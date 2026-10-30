@@ -1,4 +1,5 @@
-import { listFavorites, listRecent, setFavorite } from "./member.js";
+import { excludedMenus, listFavorites, listRecent, setExcluded, setFavorite } from "./member.js";
+import { loadMenus } from "./menus.js";
 import { getSupabase, SUPABASE_CONFIGURED } from "./supabase.js";
 
 // 내 계정: 로그인·회원가입, 즐겨찾기·최근 본 가게, 로그아웃·탈퇴. 관리자 계정이면 관리자 화면 링크도 보여 줘요.
@@ -18,10 +19,16 @@ const favoriteCount = document.getElementById("favoriteCount");
 const favoriteEmpty = document.getElementById("favoriteEmpty");
 const recentList = document.getElementById("recentList");
 const recentEmpty = document.getElementById("recentEmpty");
+const excludeForm = document.getElementById("excludeForm");
+const excludeSelect = document.getElementById("excludeSelect");
+const excludedList = document.getElementById("excludedList");
+const excludedCount = document.getElementById("excludedCount");
+const excludedEmpty = document.getElementById("excludedEmpty");
 
 const MIN_PASSWORD = 8;
 
 let supabase = null;
+let menuNames = [];
 
 if (!SUPABASE_CONFIGURED) {
 	showNotice("아직 Supabase가 연결되지 않았어요.");
@@ -125,8 +132,65 @@ async function openMember(user) {
 	const [{ data: admin }] = await Promise.all([
 		supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle(),
 		refreshLists(),
+		refreshExcluded(),
 	]);
 	adminLink.hidden = !admin;
+}
+
+// 기본으로 뺄 메뉴: 목록과, 아직 안 넣은 메뉴만 든 고르기 칸
+async function refreshExcluded() {
+	try {
+		if (menuNames.length === 0) {
+			menuNames = (await loadMenus()).menus.map((menu) => menu.name).sort((a, b) => a.localeCompare(b, "ko"));
+		}
+		const names = [...(await excludedMenus()) ?? []];
+		excludedCount.textContent = names.length > 0 ? "(" + names.length + "개)" : "";
+		excludedEmpty.hidden = names.length > 0;
+		excludedList.replaceChildren(...names.map(menuItem));
+		excludeSelect.replaceChildren(...menuNames.filter((name) => !names.includes(name)).map((name) => new Option(name)));
+	} catch (error) {
+		showNotice("기본으로 뺄 메뉴를 불러오지 못했어요: " + error.message);
+	}
+}
+
+excludeForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	const name = excludeSelect.value;
+	if (!name) {
+		return;
+	}
+	excludeForm.querySelector("button").disabled = true;
+	try {
+		await setExcluded(name, true);
+		await refreshExcluded();
+	} catch (error) {
+		showNotice("기본으로 뺄 메뉴에 넣지 못했어요: " + error.message);
+	} finally {
+		excludeForm.querySelector("button").disabled = false;
+	}
+});
+
+function menuItem(name) {
+	const item = document.createElement("li");
+	const text = document.createElement("span");
+	text.className = "place-name";
+	text.textContent = name;
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "small";
+	button.textContent = "빼기";
+	button.addEventListener("click", async () => {
+		button.disabled = true;
+		try {
+			await setExcluded(name, false);
+			await refreshExcluded();
+		} catch (error) {
+			button.disabled = false;
+			showNotice("기본으로 뺄 메뉴에서 빼지 못했어요: " + error.message);
+		}
+	});
+	item.append(text, button);
+	return item;
 }
 
 async function refreshLists() {

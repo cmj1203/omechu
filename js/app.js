@@ -1,4 +1,5 @@
 import { loadMenus } from "./menus.js";
+import { excludedMenus } from "./member.js";
 import { rememberMenus } from "./nearby-menu-matching.js";
 import { initNearby } from "./nearby.js";
 
@@ -9,6 +10,10 @@ const storeQuery = document.getElementById("storeQuery");
 const menuSearch = document.getElementById("menuSearch");
 const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
+const skippedDetails = document.getElementById("skippedMenus");
+// 결과 상자는 추천·검색 결과가 처음 들어갈 때 보여요(사용자 10-30: 그전엔 안내문만 든 빈 칸이라 뺌).
+const resultBox = result.closest(".result-box");
+resultBox.hidden = true;
 const dataNote = document.getElementById("dataNote");
 const nearby = initNearby(document.getElementById("nearby"));
 
@@ -25,20 +30,22 @@ form.addEventListener("change", () => {
 window.addEventListener("pageshow", lockCuisine);
 
 const RECENT_LIMIT = 5;
-const SKIPPED_KEY = "omechu.skippedMenus";
 
 let menus = [];
 let current = null;
 let resultMode = null;
 let lastAllowed = [];
+// '메뉴 빼기'로 뺀 메뉴는 이 화면을 연 동안만 빼요(사용자 10-30: 기기에 저장하지 않음).
+// 늘 뺄 메뉴는 회원이 내 계정에 넣어 두고, 추천할 때 함께 빼요.
 let recent = [];
-let skipped = readSkipped();
+let skipped = [];
+let excluded = new Set();
 
 try {
-	const loaded = await loadMenus();
+	const [loaded, memberExcluded] = await Promise.all([loadMenus(), excludedMenus()]);
 	menus = loaded.menus;
 	rememberMenus(menus);
-	skipped = skipped.filter((name) => menus.some((menu) => menu.name === name));
+	excluded = memberExcluded ?? new Set();
 	if (loaded.usedFallback) {
 		dataNote.textContent = "지금은 기본 메뉴 목록으로 추천하고 있어요.";
 		dataNote.hidden = false;
@@ -47,6 +54,7 @@ try {
 	recommendButton.textContent = "추천받기";
 	storeQuery.disabled = false;
 	menuQuery.disabled = false;
+	openDecided(new URLSearchParams(location.search));
 } catch (error) {
 	console.error(error);
 	recommendButton.textContent = "메뉴를 불러오지 못했어요";
@@ -61,9 +69,36 @@ form.addEventListener("submit", (event) => {
 storeSearch.addEventListener("submit", searchStores);
 menuSearch.addEventListener("submit", searchMenus);
 
+// 같이 정하기에서 확정한 메뉴·모일 곳으로 왔으면(index.html?menu=…&place=…&lat=…&lng=…) 그 메뉴를 그곳 근처에서 바로 찾아요.
+// 메뉴 목록에 없는 이름(직접 적은 후보)은 메뉴 검색과 같이 찾아요.
+function openDecided(params) {
+	const name = params.get("menu")?.trim();
+	if (!name) {
+		return;
+	}
+	const lat = Number(params.get("lat"));
+	const lng = Number(params.get("lng"));
+	const label = params.get("place")?.trim();
+	if (label && Number.isFinite(lat) && Number.isFinite(lng) && params.get("lat") && params.get("lng")) {
+		nearby.setOrigin({ label, lat, lng });
+	}
+	const menu = menus.find((candidate) => candidate.name === name);
+	if (!menu) {
+		menuQuery.value = name;
+		menuSearch.requestSubmit();
+		return;
+	}
+	resultMode = "menu";
+	current = menu;
+	lastAllowed = [menu];
+	showMenu(menu);
+	nearby.show(menu, [menu]);
+	recommendButton.textContent = "다시 추천받기";
+}
+
 function recommendMenu() {
 	resultMode = "menu";
-	const allowed = allowedMenus(true);
+	const allowed = allowedMenus();
 	if (!allowed) {
 		return;
 	}
@@ -98,7 +133,7 @@ function searchStores(event) {
 	storeQuery.blur();
 	const menu = menus.find((candidate) => candidate.name === query)
 		?? menus.find((candidate) => (candidate.search_terms ?? []).includes(query) && !(candidate.broad_terms ?? []).includes(query));
-	result.replaceChildren(paragraph("menu-label", "가게 검색"), paragraph("menu-tags", query));
+	show(paragraph("menu-label", "가게 검색"), paragraph("menu-tags", query));
 	nearby.showSearch(query, menu ? [menu] : []);
 }
 
@@ -122,12 +157,12 @@ function searchMenus(event) {
 		showMessage("'" + query + "' 메뉴가 없어요.");
 		return;
 	}
-	result.replaceChildren(paragraph("menu-label", "메뉴 검색"), paragraph("menu-tags", matched.map((menu) => menu.name).join(", ")));
+	show(paragraph("menu-label", "메뉴 검색"), paragraph("menu-tags", matched.map((menu) => menu.name).join(", ")));
 	nearby.showSearch(query, matched);
 }
 
 // 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.
-function allowedMenus(recommendAgain) {
+function allowedMenus() {
 	const filters = Object.fromEntries(new FormData(form));
 	const candidates = menus.filter((menu) =>
 		(filters.kind === "전체" || menu.kinds.includes(filters.kind))
@@ -138,11 +173,11 @@ function allowedMenus(recommendAgain) {
 		showMessage("조건에 맞는 메뉴가 없어요. 조건을 바꿔 보세요.");
 		return null;
 	}
-	const allowed = candidates.filter((menu) => !skipped.includes(menu.name));
+	const allowed = candidates.filter((menu) => !skipped.includes(menu.name) && !excluded.has(menu.name));
 	if (allowed.length === 0) {
 		current = null;
 		nearby.hide();
-		showMessage("이 조건의 메뉴를 모두 뺐어요.", skippedNote(recommendAgain));
+		showMessage("이 조건의 메뉴를 모두 뺐어요.", excludedNote());
 		return null;
 	}
 	return allowed;
@@ -163,7 +198,7 @@ function lockCuisine() {
 }
 
 function showMenu(menu) {
-	result.replaceChildren(
+	show(
 		paragraph("menu-label", "오늘의 메뉴"),
 		paragraph("menu-name", menu.name),
 		paragraph("menu-tags", [menu.kinds.join("·"), menu.cuisine].join(" | ")),
@@ -172,21 +207,23 @@ function showMenu(menu) {
 }
 
 function showMessage(text, ...extra) {
-	result.replaceChildren(paragraph("placeholder", text), ...extra);
+	show(paragraph("placeholder", text), ...extra);
+}
+
+function show(...nodes) {
+	resultBox.hidden = false;
+	result.replaceChildren(...nodes);
 }
 
 function menuActions(menu) {
 	const actions = document.createElement("div");
 	actions.className = "menu-actions";
-	actions.append(textButton("이 메뉴 빼기", () => {
+	actions.append(textButton("메뉴 빼기", () => {
 		skipped = [...skipped, menu.name];
-		saveSkipped();
+		renderSkipped();
 		form.requestSubmit();
 	}));
 	actions.append(pollLink(menu));
-	if (skipped.length > 0) {
-		actions.append(skippedNote(false));
-	}
 	return actions;
 }
 
@@ -199,25 +236,49 @@ function pollLink(menu) {
 		.map((item) => item.name);
 	const link = document.createElement("a");
 	link.className = "text-button";
-	link.href = "vote.html?menus=" + encodeURIComponent([menu.name, ...others].join(","));
+	const menusParam = [menu.name, ...others].join(",");
+	link.href = "vote.html?" + new URLSearchParams({ menus: menusParam });
+	// 위치 칸은 메뉴를 보여 준 뒤에 채워져서, 누르는 순간의 위치를 '모일 곳'으로 넘겨요.
+	link.addEventListener("click", () => {
+		const place = document.getElementById("nearbyPlace").value.trim();
+		const known = nearby.knownOrigin();
+		link.href = "vote.html?" + new URLSearchParams({
+			menus: menusParam,
+			...(place ? { place } : {}),
+			...(known ? { lat: known.lat, lng: known.lng } : {}),
+		});
+	});
 	link.textContent = "친구랑 같이 정하기";
 	return link;
 }
 
-// 뺀 메뉴는 이 기기에만 기억해요. '다시 넣기'를 누르면 모두 돌아와요.
-function skippedNote(recommendAgain) {
-	const note = document.createElement("p");
-	note.className = "skipped-note";
-	const names = skipped.slice(0, 3).join(", ") + (skipped.length > 3 ? " 외 " + (skipped.length - 3) + "개" : "");
-	note.append("뺀 메뉴: " + names, textButton("다시 넣기", () => {
-		skipped = [];
-		saveSkipped();
-		note.remove();
-		if (recommendAgain) {
-			form.requestSubmit();
-		}
+function renderSkipped() {
+	skippedDetails.hidden = skipped.length === 0;
+	if (skipped.length === 0) {
+		skippedDetails.open = false;
+	}
+	skippedDetails.querySelector("summary").textContent = "뺀 메뉴 전체 보기 (" + skipped.length + ")";
+	skippedDetails.querySelector("ul").replaceChildren(...skipped.map((name, index) => {
+		const item = document.createElement("li");
+		const label = document.createElement("span");
+		label.className = "skipped-menu-name";
+		label.textContent = name;
+		const restore = document.createElement("button");
+		restore.type = "button";
+		restore.className = "skipped-restore";
+		restore.setAttribute("aria-label", name + " 다시 넣기");
+		restore.addEventListener("click", () => {
+			skipped = skipped.filter((other) => other !== name);
+			renderSkipped();
+			if (current === null && resultMode === "menu") {
+				form.requestSubmit();
+			}
+			const buttons = skippedDetails.querySelectorAll("button");
+			(buttons[Math.min(index, buttons.length - 1)] ?? result.querySelector(".menu-actions button") ?? recommendButton).focus();
+		});
+		item.append(label, restore);
+		return item;
 	}));
-	return note;
 }
 
 function textButton(label, onClick) {
@@ -229,21 +290,19 @@ function textButton(label, onClick) {
 	return button;
 }
 
-function readSkipped() {
-	try {
-		const saved = JSON.parse(localStorage.getItem(SKIPPED_KEY) ?? "[]");
-		return Array.isArray(saved) ? saved.filter((name) => typeof name === "string") : [];
-	} catch {
-		return [];
+// 내 계정에 넣어 둔 기본 제외 메뉴 때문에 남은 메뉴가 없을 때, 어디서 바꾸는지 알려 줘요.
+function excludedNote() {
+	const note = document.createElement("p");
+	note.className = "skipped-note";
+	if (excluded.size === 0) {
+		return note;
 	}
-}
-
-function saveSkipped() {
-	try {
-		localStorage.setItem(SKIPPED_KEY, JSON.stringify(skipped));
-	} catch {
-		// 저장이 막힌 브라우저(사생활 보호 모드 등)에서는 이 화면을 연 동안만 기억해요.
-	}
+	const link = document.createElement("a");
+	link.className = "text-button";
+	link.href = "account.html";
+	link.textContent = "내 계정에서 바꾸기";
+	note.append("기본으로 뺀 메뉴 " + excluded.size + "개", link);
+	return note;
 }
 
 function paragraph(className, text) {
