@@ -11,9 +11,15 @@ const menuSearch = document.getElementById("menuSearch");
 const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
 const skippedDetails = document.getElementById("skippedMenus");
-// 결과 상자는 추천·검색 결과가 처음 들어갈 때 보여요(사용자 10-30: 그전엔 안내문만 든 빈 칸이라 뺌).
+// 결과 상자는 메뉴를 불러온 뒤 보여요. 추천 전에는 그 자리에서 메뉴 이름이 천천히 흘러가고(슬롯머신, 사용자 10-30),
+// '추천받기'를 누르면 빠르게 돌다 고른 메뉴에서 멈춰요. 움직임 줄이기를 켠 기기에서는 돌지 않아요.
 const resultBox = result.closest(".result-box");
 resultBox.hidden = true;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const SPIN_ROWS = 14;
+const SPIN_MS = 1200;
+// 다른 결과가 먼저 들어오면 돌던 슬롯이 멈춘 뒤 덮어쓰지 않게 세어요.
+let spinId = 0;
 const dataNote = document.getElementById("dataNote");
 const nearby = initNearby(document.getElementById("nearby"));
 
@@ -24,6 +30,8 @@ form.addEventListener("change", () => {
 	// 가게 검색은 조건과 상관없이 찾아서, 조건을 바꿔도 다시 찾지 않아요.
 	if (resultMode === "menu") {
 		recommendMenu();
+	} else if (resultMode === null && menus.length > 0) {
+		showIdle();
 	}
 });
 // 뒤로 가기로 돌아오면 브라우저가 고른 값을 나중에 되살려서, 그때 한 번 더 맞춰요
@@ -54,6 +62,7 @@ try {
 	recommendButton.textContent = "추천받기";
 	storeQuery.disabled = false;
 	menuQuery.disabled = false;
+	showIdle();
 	openDecided(new URLSearchParams(location.search));
 } catch (error) {
 	console.error(error);
@@ -63,7 +72,8 @@ try {
 
 form.addEventListener("submit", (event) => {
 	event.preventDefault();
-	recommendMenu();
+	// '메뉴 빼기'·다시 넣기는 requestSubmit()으로 와서 단추가 없어요. 그때는 돌지 않고 바로 바꿔요.
+	recommendMenu({ spin: event.submitter === recommendButton });
 });
 
 storeSearch.addEventListener("submit", searchStores);
@@ -96,7 +106,7 @@ function openDecided(params) {
 	recommendButton.textContent = "다시 추천받기";
 }
 
-function recommendMenu() {
+function recommendMenu({ spin = false } = {}) {
 	resultMode = "menu";
 	const allowed = allowedMenus();
 	if (!allowed) {
@@ -113,9 +123,64 @@ function recommendMenu() {
 	current = pool[Math.floor(Math.random() * pool.length)];
 	recent = [current.name, ...recent.filter((name) => name !== current.name)].slice(0, RECENT_LIMIT);
 	lastAllowed = allowed;
-	showMenu(current);
+	if (spin && !reduceMotion.matches) {
+		spinTo(current, allowed);
+	} else {
+		showMenu(current);
+	}
 	nearby.show(current, allowed);
 	recommendButton.textContent = "다시 추천받기";
+}
+
+// 추천 전: 지금 조건의 메뉴(없으면 전체)를 섞어 천천히 흘려요. 같은 줄을 두 번 이어 붙여 끊김 없이 돌아요.
+function showIdle() {
+	const pool = candidateMenus().filter((menu) => !excluded.has(menu.name));
+	const names = shuffle((pool.length > 0 ? pool : menus).map((menu) => menu.name)).slice(0, 12);
+	const box = slot([...names, ...names]);
+	box.classList.add("is-idle");
+	box.style.setProperty("--slot-count", names.length);
+	show(paragraph("menu-label", "오늘의 메뉴"), box);
+}
+
+// 고른 메뉴가 가운데 줄에 올 때까지 빠르게 올려 보내고, 멈추면 평소 결과로 바꿔요.
+function spinTo(menu, pool) {
+	const pick = () => pool[Math.floor(Math.random() * pool.length)].name;
+	const before = Array.from({ length: SPIN_ROWS }, pick);
+	const box = slot([...before, menu.name, pick()]);
+	show(paragraph("menu-label", "오늘의 메뉴"), box);
+	const id = spinId;
+	const reel = box.firstElementChild;
+	const row = reel.firstElementChild.offsetHeight;
+	// 창은 세 줄이라, 고른 메뉴(before.length 번째)가 가운데 오려면 그 한 줄 위까지 올려요.
+	const animation = reel.animate(
+		[{ transform: "translateY(0)" }, { transform: `translateY(${-(before.length - 1) * row}px)` }],
+		{ duration: SPIN_MS, easing: "cubic-bezier(0.2, 0.7, 0.25, 1)", fill: "forwards" },
+	);
+	animation.onfinish = () => {
+		if (id === spinId) {
+			showMenu(menu);
+		}
+	};
+}
+
+function slot(names) {
+	const box = document.createElement("div");
+	box.className = "slot";
+	box.setAttribute("aria-hidden", "true");
+	const reel = document.createElement("div");
+	reel.className = "slot-reel";
+	reel.append(...names.map((name) => paragraph("slot-item", name)));
+	box.append(reel);
+	return box;
+}
+
+function shuffle(items) {
+	const copy = [...items];
+	for (let i = copy.length - 1; i > 0; i -= 1) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[copy[i], copy[j]] = [copy[j], copy[i]];
+	}
+	return copy;
 }
 
 // 직접 친 말로 주변 가게를 찾아요. 메뉴 이름(또는 그 메뉴의 주력 검색어)이면 그 메뉴를 주력으로 파는 가게를,
@@ -163,10 +228,7 @@ function searchMenus(event) {
 
 // 조건에 맞고 빼지 않은 메뉴들. 없으면 안내를 보여 주고 null 을 돌려줘요.
 function allowedMenus() {
-	const filters = Object.fromEntries(new FormData(form));
-	const candidates = menus.filter((menu) =>
-		(filters.kind === "전체" || menu.kinds.includes(filters.kind))
-		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
+	const candidates = candidateMenus();
 	if (candidates.length === 0) {
 		current = null;
 		nearby.hide();
@@ -181,6 +243,14 @@ function allowedMenus() {
 		return null;
 	}
 	return allowed;
+}
+
+// 종류·나라 조건에 맞는 메뉴들.
+function candidateMenus() {
+	const filters = Object.fromEntries(new FormData(form));
+	return menus.filter((menu) =>
+		(filters.kind === "전체" || menu.kinds.includes(filters.kind))
+		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
 }
 
 function lockCuisine() {
@@ -211,6 +281,7 @@ function showMessage(text, ...extra) {
 }
 
 function show(...nodes) {
+	spinId += 1;
 	resultBox.hidden = false;
 	result.replaceChildren(...nodes);
 }

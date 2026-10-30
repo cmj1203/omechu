@@ -213,6 +213,40 @@ body {
 	letter-spacing: -0.03em;
 }
 
+/* 슬롯머신(사용자 10-30): 세 줄 높이 창에서 메뉴 이름 줄을 위로 올려 보내요. 위아래 줄은 흐리게 */
+.slot {
+	--slot-row: 56px;
+	width: 100%;
+	height: calc(var(--slot-row) * 3);
+	margin-top: 10px;
+	overflow: hidden;
+	-webkit-mask-image: linear-gradient(transparent 6%, #000 36%, #000 64%, transparent 94%);
+	mask-image: linear-gradient(transparent 6%, #000 36%, #000 64%, transparent 94%);
+}
+
+.slot-item {
+	overflow: hidden;
+	height: var(--slot-row);
+	margin: 0;
+	font-size: 36px;
+	font-weight: 800;
+	line-height: var(--slot-row);
+	letter-spacing: -0.03em;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* 같은 줄을 두 번 이어 붙여서, 절반까지 올리면 처음과 같은 모습이에요 */
+.slot.is-idle .slot-reel {
+	animation: slot-drift calc(var(--slot-count) * 1.6s) linear infinite;
+}
+
+@keyframes slot-drift {
+	to {
+		transform: translateY(-50%);
+	}
+}
+
 .menu-tags {
 	margin: 0 0 4px;
 	color: var(--ash);
@@ -1771,6 +1805,14 @@ input[type="search"]::-webkit-search-cancel-button {
 		font-size: 36px;
 	}
 
+	.slot {
+		--slot-row: 48px;
+	}
+
+	.slot-item {
+		font-size: 30px;
+	}
+
 	.result-box {
 		padding: 24px 16px;
 	}
@@ -1791,6 +1833,10 @@ input[type="search"]::-webkit-search-cancel-button {
 	.options span:active,
 	.primary:active {
 		transform: none;
+	}
+
+	.slot.is-idle .slot-reel {
+		animation: none;
 	}
 }
 
