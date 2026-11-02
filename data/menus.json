@@ -60,6 +60,7 @@
   { "name": "딤섬", "kinds": ["식사", "간식"], "cuisine": "중식", "search_terms": ["딤섬", "dimsum", "dim sum", "팀호완", "딘타이펑"] },
   { "name": "훠궈", "kinds": ["식사", "술"], "cuisine": "중식", "search_terms": ["훠궈", "하이디라오", "hotpot"], "categories": ["중식/마라탕/훠궈"] },
   { "name": "라멘", "kinds": ["식사"], "cuisine": "일식", "staple": "면", "search_terms": ["라멘", "ramen"], "broad_categories": ["일식/일식 면 요리"] },
+  { "name": "츠케멘", "kinds": ["식사"], "cuisine": "일식", "staple": "면", "search_terms": ["츠케멘", "츠케맨", "tsukemen", "츠케루"], "broad_categories": ["일식/일식 면 요리"] },
   { "name": "돈카츠", "kinds": ["식사"], "cuisine": "일식", "staple": "밥", "search_terms": ["돈카츠", "돈까스", "돈가스", "카츠"], "broad_categories": ["일식/일식 카레/돈가스/덮밥", "서양식/경양식"] },
   { "name": "초밥", "kinds": ["식사"], "cuisine": "일식", "staple": "밥", "search_terms": ["초밥", "스시", "sushi"], "categories": ["일식/일식 회/초밥"] },
   { "name": "우동", "kinds": ["식사"], "cuisine": "일식", "staple": "면", "search_terms": ["우동"], "broad_categories": ["일식/일식 면 요리"] },
