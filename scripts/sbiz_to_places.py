@@ -11,12 +11,14 @@ import math
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 
-BATCH_SIZE = 2000
+# 2000곳씩 올리면 평소 3초쯤 걸리다가, 이름 색인(GIN)이 쌓아 둔 목록을 정리하는 묶음에서 API 시간 제한 8초를 넘었어요(11-02).
+BATCH_SIZE = 500
 SAME_PLACE_METERS = 150
 # 추천에 안 맞는 곳(회사 구내식당, 유흥 주점)은 빼요.
 SKIPPED_CATEGORIES = {("구내식당·뷔페", "구내식당"), ("주점", "일반 유흥 주점"), ("주점", "무도 유흥 주점")}
@@ -44,11 +46,20 @@ def request(method, path, body=None, headers=None):
         method=method,
         headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json", **(headers or {})},
     )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as response:
-            return response.read()
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"{method} {path.split('?')[0]} 실패: HTTP {error.code} " + error.read().decode("utf-8", "replace")[:300]) from error
+    # 같은 가게 번호로 덮어쓰는 요청만 보내서, DB 시간 제한(57014)에 걸리면 조금 쉬었다가 다시 보내도 돼요.
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", "replace")[:300]
+            if error.code == 500 and '"57014"' in detail and attempt < 4:
+                print(f"DB 시간 제한에 걸려 {attempt * 10}초 뒤 다시 보내요 ({method} {path.split('?')[0]})", flush=True)
+                time.sleep(attempt * 10)
+                continue
+            raise RuntimeError(f"{method} {path.split('?')[0]} 실패: HTTP {error.code} " + detail) from error
 
 
 def menu_pattern():
