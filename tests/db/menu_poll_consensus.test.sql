@@ -70,6 +70,11 @@ begin
     raise exception 'FAIL: 방장 아닌 사람이 정했어요';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform public.confirm_menu_poll(poll, null, 0);
+    raise exception 'FAIL: 방장 키 없이 정해졌어요';
+  exception when insufficient_privilege then null;
+  end;
 
   -- '다 못 먹어요'(빈 답)가 오면 모두 가능한 후보가 없어져요. 고치면 다시 생겨요.
   perform public.submit_menu_poll_response(poll, 'friend-cccc', '{}');
