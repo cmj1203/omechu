@@ -9,8 +9,10 @@ const ORDER_KEY = "omechu.recommendOrder";
 let picker = null;
 
 export function initNearby(section) {
-	const currentButton = section.querySelector("#nearbyCurrentBtn");
-	const placeInput = section.querySelector("#nearbyPlace");
+	// 위치 칸은 결과 밖(조건 칩 아래)에 늘 보여서, 추천 전에는 고른 곳만 기억하고 추천할 때 그곳에서 찾아요.
+	const currentButton = document.getElementById("nearbyCurrentBtn");
+	const placeInput = document.getElementById("nearbyPlace");
+	const placeNote = document.getElementById("nearbyPlaceNote");
 	const result = section.querySelector("#nearbyResult");
 	const orderChoices = section.querySelector("#nearbyOrder");
 	let menu = null;
@@ -37,7 +39,7 @@ export function initNearby(section) {
 	});
 
 	// 따로 '찾기' 단추 없이, 위치 칸을 눌러 장소를 고르면 바로 그곳으로 추천해요.
-	currentButton.addEventListener("click", () => findRestaurants(true));
+	currentButton.addEventListener("click", () => (menu ? findRestaurants(true) : locateOnly()));
 	placeInput.addEventListener("click", () => {
 		if (placeInput.readOnly && !busy) {
 			choosePlace();
@@ -53,7 +55,7 @@ export function initNearby(section) {
 		}
 		if (placeInput.readOnly) {
 			choosePlace();
-		} else {
+		} else if (menu) {
 			findRestaurants(false);
 		}
 	});
@@ -76,6 +78,7 @@ export function initNearby(section) {
 		},
 		hide() {
 			searchId += 1;
+			menu = null;
 			section.hidden = true;
 		},
 		// 같이 정하기에서 정한 모일 곳({ label, lat, lng })을 위치 칸에 넣어, 다음 추천이 그 좌표로 찾게 해요.
@@ -98,6 +101,7 @@ export function initNearby(section) {
 		busy = false;
 		currentButton.disabled = false;
 		shown.clear();
+		placeNote.hidden = true;
 		result.replaceChildren();
 		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
 		orderChoices.hidden = !RATINGS_ENABLED || listMode;
@@ -116,11 +120,39 @@ export function initNearby(section) {
 		const chosen = await picker.open(placeInput.value.trim());
 		if (chosen) {
 			pickedOrigin = chosen;
+			// 먼저 현재 위치를 잡아 뒀어도 새로 고른 곳으로 찾게 해요.
+			originLookup = null;
 			placeInput.value = chosen.label;
-			findRestaurants(false);
+			placeNote.hidden = true;
+			if (menu) {
+				findRestaurants(false);
+			}
 		} else if (picker.failed) {
 			placeInput.readOnly = false;
 			placeInput.focus();
+		}
+	}
+
+	// 추천 전에 현재 위치 단추를 누르면 위치만 잡아 주소를 칸에 넣어 둬요. 추천하면 같은 좌표로 찾아요.
+	async function locateOnly() {
+		const typed = placeInput.value.trim();
+		placeNote.hidden = true;
+		currentButton.disabled = true;
+		try {
+			originLookup = currentPosition();
+			const origin = await originLookup;
+			await showAddress(origin, typed);
+			// 주소를 못 찾아도 무엇을 잡았는지 보이게 '현재 위치'를 넣어 둬요.
+			if (placeInput.value.trim() === typed) {
+				placeInput.value = origin.label;
+				pickedOrigin = { ...origin, inputText: origin.label };
+			}
+		} catch (error) {
+			originLookup = null;
+			placeNote.textContent = error.message;
+			placeNote.hidden = false;
+		} finally {
+			currentButton.disabled = busy;
 		}
 	}
 

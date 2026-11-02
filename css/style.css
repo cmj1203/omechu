@@ -1994,9 +1994,17 @@ a.small {
 	font-weight: 700;
 }
 
-/* 메뉴 추천의 위치 칸(.nearby-form)을 그대로 쓰고, 카드 폭에 맞춰 넓혀요 */
-.official-search .nearby-form {
+/* 메뉴 추천의 위치 칸(.nearby-form)을 그대로 쓰고, 카드 폭에 맞춰 넓혀요.
+   메뉴 추천도 공무원 맛집처럼 위치 칸을 결과 밖 조건 칩 아래에 둘러요(사용자 10-30) */
+.official-search .nearby-form,
+.place-choice .nearby-form {
 	width: 100%;
+}
+
+.place-note {
+	margin: 6px 0 0;
+	color: var(--error);
+	font-size: 13px;
 }
 
 .official-source-link:focus-visible,

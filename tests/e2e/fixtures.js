@@ -144,6 +144,7 @@ export function createClient() {
 		rpc(name, args) {
 			let result = { data: [], error: null };
 			if (name === "nearby_places") {
+				window.__lastNearbyArgs = args;
 				const term = (args.p_terms || [])[0] || "식당";
 				result.data = PLACES.map(([prefix, meters]) => ({
 					name: prefix + term, amenity: (args.p_amenities || ["restaurant"])[0], shop: null,

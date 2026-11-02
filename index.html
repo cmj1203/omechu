@@ -44,6 +44,14 @@
 			</fieldset>
 		</form>
 
+		<div class="choices place-choice">
+			<div class="nearby-form">
+				<input type="text" id="nearbyPlace" aria-label="위치" placeholder="동네·역 검색 (예: 강남역)" enterkeyhint="search" readonly>
+				<button type="button" id="nearbyCurrentBtn" class="nearby-locate" aria-label="현재 위치로 추천받기" title="현재 위치로 추천받기"></button>
+			</div>
+			<p id="nearbyPlaceNote" class="place-note" role="status" hidden></p>
+		</div>
+
 		<section class="result-box" aria-live="polite">
 			<div id="result"></div>
 			<details id="skippedMenus" class="skipped-menus" hidden>
@@ -51,10 +59,6 @@
 				<ul class="skipped-list"></ul>
 			</details>
 			<div id="nearby" class="nearby" hidden>
-				<div class="nearby-form">
-					<input type="text" id="nearbyPlace" aria-label="위치" placeholder="동네·역 검색 (예: 강남역)" enterkeyhint="search" readonly>
-					<button type="button" id="nearbyCurrentBtn" class="nearby-locate" aria-label="현재 위치로 추천받기" title="현재 위치로 추천받기"></button>
-				</div>
 				<div id="nearbyOrder" class="nearby-order" role="radiogroup" aria-labelledby="nearbyOrderLabel" hidden>
 					<span id="nearbyOrderLabel" class="nearby-order-label">추천 기준</span>
 					<div class="options">
