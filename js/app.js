@@ -250,11 +250,19 @@ function candidateMenus() {
 	const filters = Object.fromEntries(new FormData(form));
 	return menus.filter((menu) =>
 		(filters.kind === "전체" || menu.kinds.includes(filters.kind))
-		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine));
+		&& (filters.cuisine === "전체" || menu.cuisine === filters.cuisine)
+		// 밥·면 칩은 식사일 때만 켜져서, 꺼져 있으면 FormData 에 staple 이 없어요.
+		&& (!filters.staple || filters.staple === "전체" || menu.staple === filters.staple));
 }
 
 function lockCuisine() {
 	const kind = form.elements.kind.value;
+	// 밥·면은 식사에만 있어서, 다른 종류로 바꾸면 숨기고 '전체'로 돌려 둬요.
+	const stapleChoice = document.getElementById("stapleChoice");
+	stapleChoice.hidden = stapleChoice.disabled = kind !== "식사";
+	if (stapleChoice.hidden) {
+		form.elements.staple[0].checked = true;
+	}
 	const locked = kind === "간식" || kind === "술";
 	for (const option of form.elements.cuisine) {
 		if (option.value === "전체") {

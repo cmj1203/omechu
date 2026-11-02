@@ -23,7 +23,7 @@ function tapHeight(element) {
 test("추천 화면의 칩·단추는 누르는 높이 43px 이상", async ({ page }) => {
 	await recommend(page);
 	const targets = [
-		"#filters .options span",
+		"#filters fieldset:not([hidden]) .options span",
 		"#nearbyOrder .options span",
 		"#nearbyResult .restaurant-links a",
 		"#nearbyResult .restaurant-links button",

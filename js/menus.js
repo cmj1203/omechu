@@ -36,7 +36,7 @@ async function loadFromDatabase() {
 	}
 	const { data, error } = await supabase
 		.from("menus")
-		.select("name, kinds, cuisine, search_terms, exclude_terms, broad_terms, categories, broad_categories")
+		.select("name, kinds, cuisine, staple, search_terms, exclude_terms, broad_terms, categories, broad_categories")
 		.abortSignal(AbortSignal.timeout(5000));
 	if (error) {
 		throw error;
