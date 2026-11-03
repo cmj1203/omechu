@@ -14,7 +14,7 @@
   { "name": "냉면", "kinds": ["식사"], "cuisine": "한식", "staple": "면", "search_terms": ["냉면", "면옥", "naengmyeon"], "categories": ["한식/냉면/밀면"] },
   { "name": "칼국수", "kinds": ["식사"], "cuisine": "한식", "staple": "면", "search_terms": ["칼국수", "kalguksu"], "broad_categories": ["한식/국수/칼국수"] },
   { "name": "김밥", "kinds": ["식사", "간식"], "cuisine": "한식", "staple": "밥", "search_terms": ["김밥", "gimbap", "kimbap"], "broad_categories": ["기타 간이/김밥/만두/분식"] },
-  { "name": "백반", "kinds": ["식사"], "cuisine": "한식", "staple": "밥", "search_terms": ["백반", "한식뷔페", "기사식당", "밥집", "오징어볶음", "오삼불고기", "오삼볶음", "오징어불고기", "코다리", "갈치", "동태", "생태", "생선구이", "고등어구이", "쌈밥", "보리밥", "떡갈비"], "exclude_terms": ["국밥집", "초밥집", "김밥집", "카레밥집", "자갈치"], "categories": ["한식/백반/한정식"] },
+  { "name": "백반", "kinds": ["식사"], "cuisine": "한식", "staple": "밥", "search_terms": ["백반", "한식뷔페", "기사식당", "밥집", "오징어볶음", "오삼불고기", "오삼볶음", "오징어불고기", "코다리", "갈치", "동태", "생태", "생선구이", "고등어구이", "쌈밥", "보리밥", "떡갈비"], "exclude_terms": ["국밥집", "초밥집", "김밥집", "카레밥집", "덮밥집", "자갈치"], "categories": ["한식/백반/한정식"] },
   { "name": "알밥", "kinds": ["식사"], "cuisine": "한식", "staple": "밥", "search_terms": ["알밥", "알촌"] },
   { "name": "불고기", "kinds": ["식사"], "cuisine": "한식", "staple": "밥", "search_terms": ["불고기", "bulgogi"] },
   { "name": "삼겹살", "kinds": ["식사", "술"], "cuisine": "한식", "search_terms": ["삼겹", "고깃집", "목살", "samgyeopsal"], "broad_terms": ["고깃집"], "categories": ["한식/돼지고기 구이/찜"] },

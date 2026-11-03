@@ -10,6 +10,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const ORIGIN = { latitude: 37.5665, longitude: 126.978 };
 
 // 가짜 가게: [이름 앞말, 북쪽으로 몇 m, 구글 정보(없으면 null)]. 이름은 '앞말 + 찾는 메뉴 검색어'가 돼요.
+// 넷째 칸 { name, category } 를 주면 그 이름·상가정보 업종을 그대로 써요(업종으로만 맞는 가게를 흉내 낼 때).
 // hours 는 매일 같은 영업시간 [[여는 시, 분], [닫는 시, 분]]이고, 없으면 구글에 영업시간이 없는 가게예요.
 // 평점 우선: 인기(오메추 4.66) > 조금(리뷰 12개 5.0 → 4.11) > 가까운(구글 없음 → 4.0) > 둘째 > 셋째, 닫힌·폐업은 빼요.
 export const PLACES = [
@@ -146,10 +147,10 @@ export function createClient() {
 			if (name === "nearby_places") {
 				window.__lastNearbyArgs = args;
 				const term = (args.p_terms || [])[0] || "식당";
-				result.data = PLACES.map(([prefix, meters]) => ({
-					name: prefix + term, amenity: (args.p_amenities || ["restaurant"])[0], shop: null,
+				result.data = PLACES.map(([prefix, meters, , fixed]) => ({
+					name: fixed?.name ?? prefix + term, amenity: (args.p_amenities || ["restaurant"])[0], shop: null,
 					lat: Number((args.p_lat + meters / 111000).toFixed(6)), lng: args.p_lng, distance: meters,
-					phone: "02-123-4567", address: "서울 중구 세종대로 110", matched: true, official_visits: 0, category: null,
+					phone: "02-123-4567", address: "서울 중구 세종대로 110", matched: true, official_visits: 0, category: fixed?.category ?? null,
 				}));
 			}
 			if (name === "delete_my_account") {

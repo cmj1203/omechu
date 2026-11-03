@@ -103,6 +103,8 @@ async function searchByName(query, origin) {
 }
 
 // 메뉴 하나 또는 여러 메뉴를 주력으로 파는 가게를 가까운 순으로 최대 30곳. 2km 안에 없으면 5km까지 찾아요.
+// 추천처럼 이름으로 맞는 가게를 먼저, 업종으로만 맞는 가게는 그 뒤에 둬요. 상가정보의 '한식/백반/한정식'에는
+// 트럭·회사 이름 같은 엉뚱한 곳도 많아서, 가까운 순으로만 두면 백반 검색 맨 위를 그런 곳이 채웠어요(사용자 11-03).
 export async function listRestaurants(filterMenus, origin) {
 	for (const radius of [SEARCH_RADIUS_METERS, WIDER_RADIUS_METERS]) {
 		let found;
@@ -112,10 +114,14 @@ export async function listRestaurants(filterMenus, origin) {
 			throw new Error("가게 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요.", { cause: error });
 		}
 		const places = withoutDuplicates(found
-			.map((place) => ({ ...place, menuName: bestMenu(place, filterMenus, null)?.name }))
+			.map((place) => {
+				const menu = bestMenu(place, filterMenus, null);
+				return { ...place, menuName: menu?.name, byName: menu ? hasMainTerm(nameForMenu(place, menu), menu) : false };
+			})
 			.filter((place) => place.menuName))
-			.sort((a, b) => a.distance - b.distance)
-			.slice(0, MAX_LIST);
+			.sort((a, b) => b.byName - a.byName || a.distance - b.distance)
+			.slice(0, MAX_LIST)
+			.map(({ byName, ...place }) => place);
 		if (places.length > 0 || radius === WIDER_RADIUS_METERS) {
 			return { places, wider: radius === WIDER_RADIUS_METERS, searchedKm: radius / 1000 };
 		}
