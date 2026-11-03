@@ -40,6 +40,22 @@ test("추천 화면의 칩·단추는 누르는 높이 43px 이상", async ({ pa
 	}
 });
 
+test("밥·면 칩은 나라 아래 이름표 옆 한 줄에 나오고 누르는 높이 43px 이상", async ({ page }) => {
+	await page.goto("/index.html");
+	await page.locator("label:has(input[name=kind][value='식사'])").click();
+	const cuisine = await page.locator("#filters fieldset").filter({ hasText: "나라" }).boundingBox();
+	const legend = await page.locator("#stapleChoice legend").boundingBox();
+	const chips = page.locator("#stapleChoice .options span");
+	await expect(chips).toHaveCount(3);
+	for (const chip of await chips.all()) {
+		const box = await chip.boundingBox();
+		expect(box.y).toBeGreaterThan(cuisine.y + cuisine.height);
+		expect(Math.abs(box.y - legend.y)).toBeLessThanOrEqual(1);
+		expect(box.x).toBeGreaterThan(legend.x + legend.width);
+		expect(await chip.evaluate(tapHeight)).toBeGreaterThanOrEqual(43);
+	}
+});
+
 test("모든 화면의 입력칸은 16px 이상이라 iOS가 확대하지 않는다", async ({ page }) => {
 	for (const path of ["/index.html", "/official.html", "/vote.html", "/account.html", "/admin.html"]) {
 		await page.goto(path);
