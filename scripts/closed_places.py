@@ -10,6 +10,7 @@ DRY_RUN=1 이면 DB를 바꾸지 않아요. CLOSED_PLACES_REPORT 경로에 판�
 전국 키가 있어도 카페·제과점 누락을 막으려고 서울 세 업종을 함께 대조해요.
 전국 명세: https://www.data.go.kr/data/15154916/openapi.do 의 내장 Swagger.
 """
+import hashlib
 import json
 import http.client
 import math
@@ -17,12 +18,14 @@ import os
 import random
 import re
 import resource
+import shutil
 import sys
+import tempfile
 import time
 import urllib.parse
 from collections import Counter, defaultdict
 from collections.abc import Iterator
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -38,9 +41,16 @@ NATIONAL_BOX: Final = (33.0, 39.5, 124.0, 132.0)
 NATIONAL_URL: Final = "https://apis.data.go.kr/1741000/general_restaurants/info"
 # 하루 호출 한도가 10,000번이고 한 번에 100건만 줘서, 영업 중 전체(약 6,750번)와 최근 2년 폐업(약 1,550번)만 받아요.
 NATIONAL_CLOSED_DAYS: Final = 730
-# 깊은 페이지는 느리고 동시 16개면 504가 나서, 날짜 구간을 2만 건 이하로 나눠 8개씩 읽어요.
+# 깊은 페이지는 느리고 동시 16개면 504가 나서, 날짜 구간을 2만 건 이하로 나눠 읽어요.
 NATIONAL_CHUNK: Final = 20_000
-NATIONAL_WORKERS: Final = 8
+# 일꾼마다 남은 쪽을 하나씩 가져가서, 한 쪽이 다시 시도하며 기다려도 다른 일꾼은 계속 받아요.
+NATIONAL_WORKERS: Final = 12
+# 받은 쪽을 디스크에 남겨서, 멈추거나 하루 한도에 걸려도 다음 실행은 못 받은 쪽만 받아요. 끝나면 지워요.
+NATIONAL_CACHE: Final = Path(tempfile.gettempdir()) / "omechu-closed-national"
+NATIONAL_CACHE_SECONDS: Final = 2 * 24 * 3600
+NATIONAL_ERRORS: Final[Counter[str]] = Counter()
+# 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버가 몇 분씩 504를 내는 때가 있어서 최대 약 8분까지 기다려요.
+NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240)
 SBIZ_LAG: Final = timedelta(days=120)
 TRANSFORM: Final = Transformer.from_crs("EPSG:5174", "EPSG:4326", always_xy=True)
 
@@ -231,14 +241,23 @@ def parse_license(row: LicenseInput, source: str) -> License | None:
 
 def seoul_page(service: str, start: int, end: int) -> tuple[int, list[LicenseInput]]:
     key = os.environ["SEOUL_OPENAPI_KEY"]
-    payload = get_json(f"http://openapi.seoul.go.kr:8088/{key}/json/{service}/{start}/{end}/",
-                       TypeAdapter(dict[str, SeoulData]))
-    data = payload[service]
-    if data.RESULT.CODE != "INFO-000" or data.list_total_count <= 0:
-        raise RuntimeError(f"서울 {service} 응답이 정상이 아니어서 중단해요.")
-    if len(data.row) != min(end, data.list_total_count) - start + 1:
-        raise RuntimeError(f"서울 {service} 페이지 일부가 빠져서 동기화를 중단해요.")
-    return data.list_total_count, data.row
+    error = ""
+    # 서버가 가끔 한 쪽만 이상한 응답을 주므로(11-03 중단), 전체 실행을 버리지 않게 같은 쪽만 다시 불러요.
+    for wait in (5, 20, 60, 0):
+        try:
+            payload = get_json(f"http://openapi.seoul.go.kr:8088/{key}/json/{service}/{start}/{end}/",
+                               TypeAdapter(dict[str, SeoulData]))
+            data = payload[service]
+            if data.RESULT.CODE != "INFO-000" or data.list_total_count <= 0:
+                raise RuntimeError(f"서울 {service} 응답이 정상이 아니어서 중단해요.")
+            if len(data.row) != min(end, data.list_total_count) - start + 1:
+                raise RuntimeError(f"서울 {service} 페이지 일부가 빠져서 동기화를 중단해요.")
+            return data.list_total_count, data.row
+        except RuntimeError as failure:
+            error = str(failure)
+        print(f"서울 {service} {start}번부터 다시 시도: {error}", flush=True)
+        time.sleep(wait)
+    raise RuntimeError(f"서울 {service} {start}번부터 네 번 불러도 실패해서 중단해요: {error}")
 
 
 def seoul_licenses() -> Iterator[License]:
@@ -271,7 +290,7 @@ def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> Nat
     })
     error = ""
     # 서버가 가끔 HTTP_ERROR나 504를 주므로, 전체 실행을 버리지 않게 같은 페이지만 다시 불러요.
-    for wait in (10, 20, 40, 0):
+    for wait in (*NATIONAL_RETRY_WAITS, 0):
         try:
             payload = get_json(NATIONAL_URL + "?" + query, TypeAdapter(NationalPayload)).response
             if str(payload.header.resultCode) in {"00", "0"}:
@@ -279,8 +298,9 @@ def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> Nat
             error = "전국 인허가 응답이 정상이 아니에요."
         except RuntimeError as failure:
             error = str(failure)
+        NATIONAL_ERRORS[error] += 1
         time.sleep(wait)
-    raise RuntimeError(f"전국 인허가 {page}쪽을 네 번 불러도 실패해서 중단해요: {error}")
+    raise RuntimeError(f"전국 인허가 {page}쪽을 {len(NATIONAL_RETRY_WAITS) + 1}번 불러도 실패해서 중단해요: {error}")
 
 
 def date_chunks(field: str, base: dict[str, str], start: date, end: date) -> Iterator[tuple[dict[str, str], int]]:
@@ -294,6 +314,46 @@ def date_chunks(field: str, base: dict[str, str], start: date, end: date) -> Ite
     middle = start + timedelta(days=(end - start).days // 2)
     yield from date_chunks(field, base, start, middle)
     yield from date_chunks(field, base, middle, end)
+
+
+def page_path(conditions: dict[str, str], total: int, page: int) -> Path:
+    # 건수가 바뀐 구간은 쪽 경계가 밀리므로, 이름에 건수를 넣어 옛 쪽을 쓰지 않고 다시 받아요.
+    key = hashlib.sha256(json.dumps(conditions, sort_keys=True).encode()).hexdigest()[:16]
+    return NATIONAL_CACHE / f"{key}-{total}-{page}.json"
+
+
+def save_page(conditions: dict[str, str], total: int, page: int) -> None:
+    body = national_body(conditions, page)
+    rows = body.items.item
+    if body.totalCount != total:
+        raise RuntimeError("전국 자료 총건수가 실행 중 바뀌어서 동기화를 중단해요.")
+    if len(rows) != min(100, total - (page - 1) * 100):
+        raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
+    path = page_path(conditions, total, page)
+    temp = path.with_suffix(".tmp")
+    _ = temp.write_bytes(TypeAdapter(list[NationalInput]).dump_json(rows))
+    _ = temp.replace(path)
+
+
+def download_pages(pages: list[tuple[dict[str, str], int, int]]) -> None:
+    NATIONAL_CACHE.mkdir(parents=True, exist_ok=True)
+    for old in NATIONAL_CACHE.iterdir():
+        if time.time() - old.stat().st_mtime > NATIONAL_CACHE_SECONDS:
+            old.unlink()
+    missing = [item for item in pages if not page_path(*item).exists()]
+    print(f"전국 인허가 받을 쪽: {len(missing):,}/{len(pages):,}쪽, 일꾼 {NATIONAL_WORKERS}개", flush=True)
+    with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
+        futures = [pool.submit(save_page, *item) for item in missing]
+        try:
+            for done, future in enumerate(as_completed(futures), 1):
+                future.result()
+                if done % 64 == 0 or done == len(missing):
+                    print(f"전국 인허가 {done:,}/{len(missing):,}쪽 {time.strftime('%H:%M')} "
+                          + f"실패 {dict(NATIONAL_ERRORS)}", flush=True)
+        except Exception:
+            # 지금 받는 쪽은 마저 저장하고 남은 쪽만 취소해요. 다시 실행하면 못 받은 쪽부터 이어요.
+            pool.shutdown(wait=True, cancel_futures=True)
+            raise
 
 
 def national_licenses() -> Iterator[License]:
@@ -315,27 +375,18 @@ def national_licenses() -> Iterator[License]:
         print(f"전국 일반음식점 {label}: {expected:,}건, {len(found)}구간", flush=True)
         chunks += found
     pages = [(conditions, total, page) for conditions, total in chunks for page in range(1, math.ceil(total / 100) + 1)]
-    with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
-        # 한 번에 64쪽만 유지해서 전체 응답을 메모리에 쌓지 않아요.
-        for base in range(0, len(pages), 64):
-            window = pages[base:base + 64]
-            bodies = [pool.submit(national_body, conditions, page) for conditions, _, page in window]
-            for (_, total, page), body_future in zip(window, bodies):
-                body = body_future.result()
-                rows = body.items.item
-                if body.totalCount != total:
-                    raise RuntimeError("전국 자료 총건수가 실행 중 바뀌어서 동기화를 중단해요.")
-                if len(rows) != min(100, total - (page - 1) * 100):
-                    raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
-                for row in rows:
-                    license_row = parse_license(LicenseInput(
-                        BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
-                        DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
-                        SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
-                    ), "national")
-                    if license_row:
-                        yield license_row
-            print(f"전국 인허가 {min(base + 64, len(pages)):,}/{len(pages):,}쪽", flush=True)
+    download_pages(pages)
+    # 전체 응답을 메모리에 쌓지 않게 저장한 쪽을 하나씩 읽어요.
+    adapter = TypeAdapter(list[NationalInput])
+    for item in pages:
+        for row in adapter.validate_json(page_path(*item).read_bytes()):
+            license_row = parse_license(LicenseInput(
+                BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
+                DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
+                SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
+            ), "national")
+            if license_row:
+                yield license_row
 
 
 def places(box: tuple[float, float, float, float]) -> Iterator[Place]:
@@ -428,6 +479,8 @@ def run() -> None:
             _ = db_request("POST", "closed_places?on_conflict=osm_id", rows[offset:offset + 1000])
         for source in ("seoul", "national") if national else ("seoul",):
             _ = db_request("DELETE", f"closed_places?source=eq.{source}&checked_at=lt.{urllib.parse.quote(checked_at, safe='')}")
+        if national:
+            shutil.rmtree(NATIONAL_CACHE)
     elapsed = round(time.monotonic() - started, 2)
     peak_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1048576 if sys.platform == "darwin" else 1024)
     report = os.environ.get("CLOSED_PLACES_REPORT")
