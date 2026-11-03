@@ -40,7 +40,7 @@ test("추천 화면의 칩·단추는 누르는 높이 43px 이상", async ({ pa
 	}
 });
 
-test("밥·면 칩은 나라 아래 이름표 옆 한 줄에 나오고 누르는 높이 43px 이상", async ({ page }) => {
+test("밥·면 칩은 나라 아래 이름표 옆 한 줄에 나오고 누르는 높이 44px 이상", async ({ page }) => {
 	await page.goto("/index.html");
 	await page.locator("label:has(input[name=kind][value='식사'])").click();
 	const cuisine = await page.locator("#filters fieldset").filter({ hasText: "나라" }).boundingBox();
@@ -52,7 +52,7 @@ test("밥·면 칩은 나라 아래 이름표 옆 한 줄에 나오고 누르는
 		expect(box.y).toBeGreaterThan(cuisine.y + cuisine.height);
 		expect(Math.abs(box.y - legend.y)).toBeLessThanOrEqual(1);
 		expect(box.x).toBeGreaterThan(legend.x + legend.width);
-		expect(await chip.evaluate(tapHeight)).toBeGreaterThanOrEqual(43);
+		expect(await chip.evaluate(tapHeight)).toBeGreaterThanOrEqual(44);
 	}
 });
 
