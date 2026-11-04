@@ -15,6 +15,15 @@ if (!globalThis.happyDOM) {
 	});
 }
 
+// happy-dom 전역에는 new Option(글자) 생성자가 없어서, 브라우저와 같은 일(글자·값이 같은 option)을 하는 것을 둬요.
+if (typeof globalThis.Option !== "function") {
+	globalThis.Option = function Option(text = "") {
+		const option = document.createElement("option");
+		option.textContent = text;
+		return option;
+	};
+}
+
 const pageCache = new Map();
 
 // 저장소의 HTML 파일(index.html 등)의 body 를 지금 문서에 넣고 주소를 바꿔요. 스크립트 태그는 빼요.
