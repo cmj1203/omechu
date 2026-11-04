@@ -1,6 +1,7 @@
 import { loadMenus } from "./menus.js";
 import { excludedMenus } from "./member.js";
 import { rememberMenus } from "./nearby-menu-matching.js";
+import { placeKey } from "./nearby-restaurant-search.js";
 import { initNearby } from "./nearby.js";
 
 const form = document.getElementById("filters");
@@ -11,6 +12,10 @@ const menuSearch = document.getElementById("menuSearch");
 const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
 const skippedDetails = document.getElementById("skippedMenus");
+// '친구랑 같이 정하기'는 결과 상자 맨 아래에 있고, 메뉴를 보여 줄 때만 보여요(showMenu). 그 밖의 결과(슬롯·검색·안내)에서는 숨겨요.
+const pollLink = document.getElementById("pollLink");
+// 같이 정하기로 넘길 후보 이름. 메뉴를 보여 줄 때 정해 두고, 누를 때 위치·식당을 붙여요.
+let pollMenus = [];
 // 결과 상자는 메뉴를 불러온 뒤 보여요. 추천 전에는 그 자리에서 메뉴 이름이 천천히 흘러가고(슬롯머신, 사용자 10-30),
 // '추천받기'를 누르면 빠르게 돌다 고른 메뉴에서 멈춰요. 움직임 줄이기를 켠 기기에서는 돌지 않아요.
 const resultBox = result.closest(".result-box");
@@ -78,6 +83,20 @@ form.addEventListener("submit", (event) => {
 
 storeSearch.addEventListener("submit", searchStores);
 menuSearch.addEventListener("submit", searchMenus);
+
+// 위치 칸과 추천 식당은 메뉴를 보여 준 뒤에 채워져서, 누르는 순간의 위치를 '모일 곳'으로,
+// 그때 보여 주고 있는 추천 식당을 첫 후보의 식당으로 넘겨요(식당은 없을 수 있어요).
+pollLink.addEventListener("click", () => {
+	const place = document.getElementById("nearbyPlace").value.trim();
+	const known = nearby.knownOrigin();
+	const pick = nearby.currentPick();
+	pollLink.href = "vote.html?" + new URLSearchParams({
+		menus: pollMenus.join(","),
+		...(place ? { place } : {}),
+		...(known ? { lat: known.lat, lng: known.lng } : {}),
+		...(pick ? { restaurant: JSON.stringify(pollRestaurant(pick)) } : {}),
+	});
+});
 
 // 같이 정하기에서 확정한 메뉴·모일 곳으로 왔으면(index.html?menu=…&place=…&lat=…&lng=…) 그 메뉴를 그곳 근처에서 바로 찾아요.
 // 메뉴 목록에 없는 이름(직접 적은 후보)은 메뉴 검색과 같이 찾아요.
@@ -282,6 +301,7 @@ function showMenu(menu) {
 		paragraph("menu-tags", [menu.kinds.join("·"), menu.cuisine].join(" | ")),
 		menuActions(menu),
 	);
+	showPollLink(menu);
 }
 
 function showMessage(text, ...extra) {
@@ -291,6 +311,7 @@ function showMessage(text, ...extra) {
 function show(...nodes) {
 	spinId += 1;
 	resultBox.hidden = false;
+	pollLink.hidden = true;
 	result.replaceChildren(...nodes);
 }
 
@@ -302,33 +323,32 @@ function menuActions(menu) {
 		renderSkipped();
 		form.requestSubmit();
 	}));
-	actions.append(pollLink(menu));
 	return actions;
 }
 
 // 지금 메뉴에 같은 조건의 다른 메뉴 2개를 더해 투표 화면(vote.html)으로 보내요. 후보는 투표 화면에서 바꿀 수 있어요.
-function pollLink(menu) {
+// 위치·식당은 누를 때 붙이고, 여기서는 새 창에서 열어도 후보는 넘어가게 후보만 담아 둬요.
+function showPollLink(menu) {
 	const others = lastAllowed
 		.filter((item) => item.name !== menu.name)
 		.sort(() => Math.random() - 0.5)
 		.slice(0, 2)
 		.map((item) => item.name);
-	const link = document.createElement("a");
-	link.className = "text-button";
-	const menusParam = [menu.name, ...others].join(",");
-	link.href = "vote.html?" + new URLSearchParams({ menus: menusParam });
-	// 위치 칸은 메뉴를 보여 준 뒤에 채워져서, 누르는 순간의 위치를 '모일 곳'으로 넘겨요.
-	link.addEventListener("click", () => {
-		const place = document.getElementById("nearbyPlace").value.trim();
-		const known = nearby.knownOrigin();
-		link.href = "vote.html?" + new URLSearchParams({
-			menus: menusParam,
-			...(place ? { place } : {}),
-			...(known ? { lat: known.lat, lng: known.lng } : {}),
-		});
-	});
-	link.textContent = "친구랑 같이 정하기";
-	return link;
+	pollMenus = [menu.name, ...others];
+	pollLink.href = "vote.html?" + new URLSearchParams({ menus: pollMenus.join(",") });
+	pollLink.hidden = false;
+}
+
+// 같이 정하기에 넘기는 식당 모양(계획서 계약: key·name·address·phone·lat·lng). 주소·전화는 빈 글자 대신 null 로 넘겨요.
+function pollRestaurant(place) {
+	return {
+		key: placeKey(place),
+		name: place.name,
+		address: place.address || null,
+		phone: place.phone || null,
+		lat: place.lat,
+		lng: place.lng,
+	};
 }
 
 function renderSkipped() {

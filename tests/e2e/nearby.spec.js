@@ -75,6 +75,49 @@ test.describe("주변 식당 추천", () => {
 		// 예전 '주변 ○○ 식당 추천' 단추는 없어요.
 		await expect(page.locator("#nearbyBtn")).toHaveCount(0);
 	});
+
+	test("'친구랑 같이 정하기'는 결과 상자 맨 아래에 추천 뒤에만 보이고, 후보·모일 곳·추천 식당을 담아 넘긴다", async ({ page }) => {
+		await page.goto("/index.html");
+		const link = page.getByRole("link", { name: "친구랑 같이 정하기" });
+		// 추천 전(슬롯머신)에는 없어요.
+		await expect(page.locator("#recommend:not([disabled])")).toBeVisible();
+		await expect(page.locator(".slot")).toBeVisible();
+		await expect(link).toBeHidden();
+		await page.locator("#recommend:not([disabled])").click();
+		await expect(page.locator(".restaurant-card")).toBeVisible();
+		await expect(page.locator("#nearbyPlace")).toHaveValue("서울 중구 세종대로 110");
+		await expect(link).toBeVisible();
+		// 결과 상자의 마지막 자식으로, 추천 식당 상자 아래에 같은 폭으로 놓여요.
+		expect(await link.evaluate((element) => element.parentElement.className + "/" + (element === element.parentElement.lastElementChild))).toBe("result-box/true");
+		const card = await page.locator(".restaurant-card").boundingBox();
+		const box = await link.boundingBox();
+		expect(box.y).toBeGreaterThan(card.y + card.height);
+		expect(Math.abs(box.width - card.width)).toBeLessThanOrEqual(1);
+		expect(box.height).toBeGreaterThanOrEqual(44);
+		// 누르는 순간 후보 3개·모일 곳·보여 준 추천 식당을 주소에 담아요. 여기서는 넘어가지 않게 막고 주소만 봐요.
+		await link.evaluate((element) => element.addEventListener("click", (event) => event.preventDefault(), { once: true }));
+		await link.click();
+		const url = new URL(await link.getAttribute("href"), page.url());
+		expect(url.pathname).toBe("/vote.html");
+		expect(url.searchParams.get("menus").split(",")).toHaveLength(3);
+		expect(url.searchParams.get("place")).toBe("서울 중구 세종대로 110");
+		expect(Number(url.searchParams.get("lat"))).toBeCloseTo(37.5665, 4);
+		expect(Number(url.searchParams.get("lng"))).toBeCloseTo(126.978, 4);
+		const restaurant = JSON.parse(url.searchParams.get("restaurant"));
+		expect(restaurant).toEqual({
+			key: restaurant.name + "|" + restaurant.lat.toFixed(5) + "|" + restaurant.lng.toFixed(5),
+			name: expect.stringMatching(/^인기/),
+			address: "서울 중구 세종대로 110",
+			phone: "02-123-4567",
+			lat: expect.closeTo(37.5728, 3),
+			lng: expect.closeTo(126.978, 3),
+		});
+		// 가게 검색 목록으로 바꾸면 숨어요.
+		await page.locator("#storeQuery").fill("김밥");
+		await page.locator("#storeQuery").press("Enter");
+		await expect(page.locator(".others")).toBeVisible();
+		await expect(link).toBeHidden();
+	});
 });
 
 test.describe("구글 키가 없을 때", () => {

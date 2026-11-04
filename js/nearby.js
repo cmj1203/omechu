@@ -23,6 +23,8 @@ export function initNearby(section) {
 	let pickedOrigin = null;
 	let originLookup = null;
 	let busy = false;
+	// 지금 결과 칸에 그려진 추천 식당(render 가 그린 pick). 검색 목록·안내문·찾는 중·숨김이거나 못 찾았으면 null 이에요.
+	let shownPick = null;
 	// '다른 가게'로 이미 보여 준 가게. 메뉴·위치·추천 기준이 바뀌면 비워요.
 	const shown = new Set();
 	let order = readOrder();
@@ -79,7 +81,12 @@ export function initNearby(section) {
 		hide() {
 			searchId += 1;
 			menu = null;
+			shownPick = null;
 			section.hidden = true;
+		},
+		// 지금 보여 주고 있는 추천 식당. 같이 정하기가 첫 후보의 식당으로 넘기려고 물어요(없으면 null).
+		currentPick() {
+			return shownPick;
 		},
 		// 같이 정하기에서 정한 모일 곳({ label, lat, lng })을 위치 칸에 넣어, 다음 추천이 그 좌표로 찾게 해요.
 		// 위치 칸 글자와 맞는 좌표를 이미 알면 돌려줘요(장소 창에서 고른 곳·현재 위치). 모르면 null.
@@ -102,6 +109,7 @@ export function initNearby(section) {
 		currentButton.disabled = false;
 		shown.clear();
 		placeNote.hidden = true;
+		shownPick = null;
 		result.replaceChildren();
 		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
 		orderChoices.hidden = !RATINGS_ENABLED || listMode;
@@ -229,6 +237,7 @@ export function initNearby(section) {
 	}
 
 	function renderList(target, origin, found) {
+		shownPick = null;
 		if (found.places.length === 0) {
 			showMessage(origin.label + " 근처 " + found.searchedKm + "km 안에서 '" + target.name + "' 가게를 찾지 못했어요.", target, origin);
 			return;
@@ -255,6 +264,7 @@ export function initNearby(section) {
 	// 찾는 동안 결과 자리에 하는 일을 보여 주고, 위치 칸·현재 위치 단추는 꺼 둬요.
 	function setBusy(label) {
 		busy = true;
+		shownPick = null;
 		currentButton.disabled = true;
 		result.replaceChildren(paragraph("nearby-message", label));
 	}
@@ -264,6 +274,7 @@ export function initNearby(section) {
 			showMessage(origin.label + " 근처 " + found.searchedKm + "km 안에서 조건에 맞는 식당을 찾지 못했어요.", target, origin);
 			return;
 		}
+		shownPick = found.pick;
 		const nodes = [];
 		if (found.wider) {
 			nodes.push(paragraph("nearby-note", "2km 안에 맞는 가게가 없어서 5km까지 찾았어요."));
@@ -288,6 +299,7 @@ export function initNearby(section) {
 	}
 
 	function showMessage(text, target, where) {
+		shownPick = null;
 		result.replaceChildren(paragraph("nearby-message", text), footer(target, where));
 	}
 }

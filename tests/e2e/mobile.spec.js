@@ -22,6 +22,8 @@ function tapHeight(element) {
 
 test("추천 화면의 칩·단추는 누르는 높이 43px 이상", async ({ page }) => {
 	await recommend(page);
+	// '친구랑 같이 정하기'는 식당 카드보다 늦게, 슬롯이 멈추고 메뉴가 나올 때 보여서 그때까지 기다려요.
+	await expect(page.locator("#pollLink")).toBeVisible();
 	const targets = [
 		"#filters fieldset:not([hidden]) .options span",
 		"#nearbyOrder .options span",
@@ -30,6 +32,7 @@ test("추천 화면의 칩·단추는 누르는 높이 43px 이상", async ({ pa
 		".another-button",
 		".restaurant-name .favorite-button",
 		".nearby-locate",
+		"#pollLink",
 	];
 	for (const selector of targets) {
 		const heights = await page.locator(selector).evaluateAll((elements, measure) => elements.map(new Function("return " + measure)()), tapHeight.toString());
