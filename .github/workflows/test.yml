@@ -1,5 +1,5 @@
-# 자동 테스트: 푸시·PR마다 화면 테스트(Playwright, 바깥 서비스는 가짜)와 DB 테스트(PostGIS Postgres에 모든 마이그레이션 + SQL 테스트)를 돌려요.
-# 로컬에서는 `npm test`, `PGHOST=… PGUSER=… PGPASSWORD=… npm run test:db` 로 똑같이 돌릴 수 있어요.
+# 자동 테스트: 푸시·PR마다 화면 테스트(Playwright, 바깥 서비스는 가짜), 단위 테스트(bun test, tests/*.test.js), DB 테스트(PostGIS Postgres에 모든 마이그레이션 + SQL 테스트)를 돌려요.
+# 로컬에서는 `npm test`, `npm run test:unit`, `PGHOST=… PGUSER=… PGPASSWORD=… npm run test:db` 로 똑같이 돌릴 수 있어요.
 name: 테스트
 
 on:
@@ -26,6 +26,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: 단위 테스트
+        run: npm run test:unit
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
       - name: 실패하면 보고서 올리기
