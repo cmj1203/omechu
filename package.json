@@ -9,6 +9,7 @@
     "test:unit": "bun test ./tests/*.test.js"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "21.0.4",
     "@playwright/test": "1.63.0"
   }
 }
