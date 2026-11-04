@@ -52,19 +52,22 @@
 
 ## 🏛️ 공무원 맛집은 이렇게 골라요
 
-1. 네 기관이 공개하는 업무추진비 집행내역을 받아요.
+1. 16개 기관이 공개하는 업무추진비 집행내역을 받아요. 순서는 `scripts/official_picks.py`의 `AGENCY_ORDER`와 같아요.
    - [서울시 본청](https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do)(시장단 · 4급 부서장 이상, OpenAPI): 사용 장소가 `잼배옥(중구 서소문동 64-4)`처럼 가게 이름과 주소로 적혀 있어요.
-   - [은평구](https://www.ep.go.kr/www/selectJobPrtnCtWebList.do?key=666)(구청 홈페이지 표), [서대문구](https://www.sdm.go.kr/admininfo/budget/openmoney.do)(월별 엑셀), [행정안전부](https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardList.do?bbsId=BBSMSTR_000000000187)(국별 첨부 엑셀): 가게 이름만 있어요.
-2. 최근 24개월의 식사 관련 집행기록을 골라 상가(상권)정보의 음식점과 이어요. 서울시 본청은 주소(도로명 · 지번)와 이름으로, 나머지는 그 구(행정안전부는 세종시 · 종로구) 안에서 이름이 하나로 정해질 때만 이어요. '○○ 신촌점'처럼 지점이 다르면 잇지 않아요. 카페 · 빵집 · 구내식당 · 유흥 주점과 상품권 · 다과 구입은 빼고, 가게를 하나로 특정할 수 없으면 집계하지 않아요.
+   - 서울 8개 구: [은평구](https://www.ep.go.kr/www/selectJobPrtnCtWebList.do?key=666)(구청 홈페이지 표), [서대문구](https://www.sdm.go.kr/admininfo/budget/openmoney.do)(월별 엑셀), [관악구](https://www.gwanak.go.kr/site/gwanak/estimate/estimateList.do)(카드 목록), [강남구](https://www.gangnam.go.kr/board/B_000673/list.do?mid=ID05_04200502) · [중구](https://www.junggu.seoul.kr) · [도봉구](https://www.dobong.go.kr/bbs.asp?code=10008860) · [노원구](https://nowon.kr/www/user/bbs/BD_selectBbsList.do?q_bbsCode=1012) · [양천구](https://www.yangcheon.go.kr/site/yangcheon/ex/bbs/List.do?cbIdx=397)(게시판 첨부 엑셀).
+   - [행정안전부](https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardList.do?bbsId=BBSMSTR_000000000187)(국별 첨부 엑셀).
+   - [부산광역시](https://www.busan.go.kr/ghopen12/list?schBizNo=46) · [대구광역시](https://www.daegu.go.kr) · [대전광역시](https://www.daejeon.go.kr/drh/open/drhDataOpen/drhDataOpenBoardView.do?boardSeq=747&menuSeq=4804) · [광주](https://www.gwangju.go.kr/boardList.do?boardId=BD_0000000252&pageId=www101)(전남광주통합특별시, 옛 광주광역시) · [성남시](https://www.seongnam.go.kr/bbs030408) · [용인시](http://www.yongin.go.kr/user/bbs/BD_selectBbsList.do?q_bbsCode=1001&q_clCode=6)(시청 게시판 첨부 엑셀).
+   - 서울시 본청 말고는 가게 이름만 있어요(관악구 · 대전광역시처럼 괄호에 주소를 단 곳도 이름만 떼어 써요).
+2. 최근 24개월의 식사 관련 집행기록을 골라 상가(상권)정보의 음식점과 이어요. 서울시 본청은 주소(도로명 · 지번)와 이름으로, 나머지는 그 기관의 지역(서울 구는 그 구, 행정안전부는 세종시 · 종로구, 광역시 · 시는 그 시의 모든 구) 안에서 이름이 하나로 정해질 때만 이어요. '○○ 신촌점'처럼 지점이 다르면 잇지 않아요. 카페 · 빵집 · 구내식당 · 유흥 주점과 상품권 · 다과 구입은 빼고, 가게를 하나로 특정할 수 없으면 집계하지 않아요.
 3. 가게별로 방문 기록 수, 이용 부서 수, 1인당 집행금액 평균(금액 ÷ 공개된 인원), 점심(11시 이상 15시 미만) · 저녁(17시 이후) 기록 수, 최근 이용일을 모아요. 기록이 2건 이상인 곳만 보여 줘요. 결제 기록 기준이라 실제 방문 횟수나 맛을 보증하지는 않아요.
 4. 작성자 이름 같은 개인정보는 저장하지 않아요.
 5. 화면에서는 1인 가격(1.5만·2만·3만 원 이하)으로 거를 수 있어요. TOP 30 순서는 많이 간 순·점심에 많이 간 순·저녁에 많이 간 순 중에 고르고, 처음 열 때는 지금 시각에 맞춰요(오전 10시~오후 3시는 점심, 오후 4시~밤 11시는 저녁).
 
 | 알아 둘 점 | 설명 |
 |------|------|
-| 어디에 많아요? | 서울시청 · 광화문 · 무교동 · 을지로, 은평구, 서대문구, 정부세종청사 근처에 몰려 있어요. 다른 동네에서는 근처 결과가 적을 수 있어요 |
-| 얼마나 이어져요? | 2026년 10월 14일 기준 네 기관 기록 22만 3천여 건 중 최근 24개월 식사 관련 기록 101,424건을 골랐고, 57,186건(56.4%)을 가게와 연결했어요(서울시 본청 38,439 · 은평구 10,659 · 서대문구 7,599 · 행정안전부 489건). 기록이 2건 이상인 가게는 2,644곳이에요 |
-| 언제 바뀌어요? | 업무추진비는 집행 다음 달에 공개되고, 매달 자동 새로고침 때 함께 다시 모아요. 서대문구 기록은 시간이 없어서 점심 · 저녁 횟수에는 빠져요. 기관 홈페이지 하나라도 못 읽으면 그달은 지우지 않고 지난 목록을 그대로 둬요 |
+| 어디에 많아요? | 16개 기관의 청사와 그 지역(서울 9곳, 정부세종청사, 부산 · 대구 · 대전 · 광주 · 성남 · 용인) 근처에 몰려 있어요. 다른 동네에서는 근처 결과가 적거나 없을 수 있어요 |
+| 얼마나 이어져요? | 기관마다 공개하는 칸과 가게 이름 적는 방식이 달라서, 가게와 이어지는 비율도 기관마다 달라요. 주소가 있는 서울시 본청이 가장 잘 이어지고, 이름만 있는 기관은 지역 안에서 같은 이름이 여러 곳이면 빠져요. 가져오기 때마다 기관별 받은 건수와 가게 찾은 건수를 로그에 찍어요 |
+| 언제 바뀌어요? | 업무추진비는 집행 다음 달에 공개되고, 매달 자동 새로고침 때 함께 다시 모아요. 서대문구 · 중구 · 부산광역시처럼 사용 시각이 없는 기록은 점심 · 저녁 횟수에는 빠져요. 서울시 본청 · 은평구 · 서대문구 · 행정안전부 중 하나라도 못 읽으면 그달은 지우지 않고 지난 목록을 그대로 둬요. 나머지 12개 기관은 하나가 막히거나 40분 안에 끝나지 않으면 그 기관만 건너뛰고, 새로 올린 가게가 전의 절반도 안 되면 지우기를 건너뛰어요 |
 
 ## ⚙️ 내 컴퓨터에서 실행하기
 
@@ -88,10 +91,11 @@ python3 -m http.server 8000
 npm ci                                       # 처음 한 번 (Playwright)
 npx playwright install chromium              # 처음 한 번 (브라우저)
 npm test                                     # 화면 테스트: 바깥 서비스(Supabase·구글·카카오)는 가짜라 인터넷 없이 돌아요
+npm run test:unit                            # 단위 테스트(bun 필요): tests/*.test.js 만 돌려요. 인자 없는 bun test 는 tests/e2e 까지 집어 실패해요
 PGHOST=localhost PGUSER=postgres PGPASSWORD=… npm run test:db   # DB 테스트: PostGIS 있는 Postgres에 모든 마이그레이션 + SQL 테스트
 ```
 
-GitHub Actions(`.github/workflows/test.yml`)가 푸시·PR마다 두 테스트를 돌려요.
+GitHub Actions(`.github/workflows/test.yml`)가 푸시·PR마다 화면 · 단위 · DB 테스트를 돌려요.
 
 ## 🔄 식당 정보 새로고침
 
@@ -305,6 +309,6 @@ DRY_RUN=1 ./scripts/import-sbiz-places.sh  # 시험: 올릴 가게 수만 세기
 
 ---
 
-식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자, [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) (공공데이터포털), [서울시 본청 업무추진비](https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do) (서울 열린데이터광장)
+식당 정보 © [OpenStreetMap](https://www.openstreetmap.org/copyright) 기여자, [소상공인시장진흥공단 상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do) (공공데이터포털), 업무추진비 집행내역: [서울시 본청](https://data.seoul.go.kr/dataList/OA-22156/S/1/datasetView.do) (서울 열린데이터광장) · 은평구 · 서대문구 · 관악구 · 강남구 · 중구 · 도봉구 · 노원구 · 양천구 · 행정안전부 · 부산광역시 · 대구광역시 · 대전광역시 · 광주 · 성남시 · 용인시 (각 기관 홈페이지, [위 설명](#️-공무원-맛집은-이렇게-골라요)에 주소)
 
 예전 버전(JSP + MySQL, 학교 주변 맛집 추천)은 [lllllIIlI/jsp](https://github.com/lllllIIlI/jsp)에 있어요.
