@@ -90,10 +90,13 @@ const CREATE_URL = "/vote.html?" + new URLSearchParams({ menus: "백반,돈까�
 async function captureShare(page) {
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
-		navigator.clipboard.writeText = (text) => {
-			window.__shared = text;
-			return Promise.resolve();
-		};
+		// 가게 이름 링크가 먼저 여는 빈 창(about:blank)에는 clipboard 가 없어요.
+		if (navigator.clipboard) {
+			navigator.clipboard.writeText = (text) => {
+				window.__shared = text;
+				return Promise.resolve();
+			};
+		}
 	});
 }
 
@@ -103,6 +106,8 @@ test("URL로 넘어온 식당은 첫 후보에 붙고, 만들기·답하기·결
 	const rows = page.locator(".vote-candidate");
 	await expect(rows).toHaveCount(3);
 	await expect(rows.nth(0).locator(".vote-candidate-restaurant")).toHaveText("목포생태찌개");
+	// 가게 이름은 메인처럼 가게 페이지 링크예요(마우스를 올리면 밑줄)
+	await expect(rows.nth(0).locator(".vote-candidate-restaurant .place-name-link")).toHaveAttribute("href", /search\.naver\.com/);
 	await expect(page.getByRole("button", { name: "식당 붙이기" })).toHaveCount(2);
 
 	// 떼면 '식당 붙이기'로 돌아가요
@@ -142,13 +147,20 @@ test("URL로 넘어온 식당은 첫 후보에 붙고, 만들기·답하기·결
 	await expect(checks.nth(1).locator(".vote-check-place")).toContainText("도보 약 2분 · 100m");
 	await expect(checks.nth(2).locator(".vote-check-place")).toHaveCount(0);
 
-	// 지도 링크를 눌러도 체크 상자는 그대로고, 식당 칸의 다른 곳을 누르면 고르기가 돼요
+	// 지도 링크·가게 이름(가게 페이지 링크)을 눌러도 체크 상자는 그대로고, 식당 칸의 다른 곳을 누르면 고르기가 돼요
 	const popup = page.waitForEvent("popup");
 	await checks.nth(0).locator(".vote-map-link").click();
 	await (await popup).close();
 	const firstCheck = page.getByRole("checkbox", { name: "백반", exact: true });
 	await expect(firstCheck).not.toBeChecked();
-	await checks.nth(0).locator(".vote-check-place strong").click();
+	const namePopup = page.waitForEvent("popup");
+	await checks.nth(0).locator(".vote-check-place .place-name-link").click();
+	// 가게 페이지 주소를 찾기 전에 창을 닫으면 본 화면이 그 주소로 이동해서, 주소가 들어간 뒤 닫아요.
+	const namePage = await namePopup;
+	await namePage.waitForURL(/place\.map\.kakao\.com|search\.naver\.com/).catch(() => {});
+	await namePage.close();
+	await expect(firstCheck).not.toBeChecked();
+	await checks.nth(0).locator(".vote-check-place > span").first().click();
 	await expect(firstCheck).toBeChecked();
 
 	// 결과 줄에도 식당 이름이 붙고, 공유 글에는 '메뉴 · 식당'으로 들어가요

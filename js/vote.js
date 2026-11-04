@@ -4,6 +4,7 @@ import { initPlacePicker } from "./place-picker.js";
 import { loadMenus } from "./menus.js";
 import { walkMinutes } from "./nearby-database.js";
 import { formatDistance, kakaoMapUrl, restaurantCard } from "./nearby-renderer.js";
+import { placeNameLink } from "./place-page.js";
 import { metersBetween, placeKey, searchRestaurants, searchStores } from "./nearby-restaurant-search.js";
 
 const MIN_OPTIONS = 2;
@@ -350,13 +351,13 @@ function renderAnswerForm() {
 	updateAnswerButton();
 }
 
-// 답하기 줄의 식당 칸: 이름, 모일 곳에서 도보 시간·거리, 주소, 지도 링크.
-// 지도 링크는 label 안의 링크라 눌러도 체크 상자가 바뀌지 않고(링크는 label 이 켜지지 않는 대상이에요), 다른 곳을 누르면 체크 상자가 바뀌어요.
+// 답하기 줄의 식당 칸: 이름(가게 페이지 링크), 모일 곳에서 도보 시간·거리, 주소, 지도 링크.
+// 가게 이름·지도 링크는 label 안의 링크라 눌러도 체크 상자가 바뀌지 않고(링크는 label 이 켜지지 않는 대상이에요), 다른 곳을 누르면 체크 상자가 바뀌어요.
 function restaurantBlock(restaurant) {
 	const block = document.createElement("span");
 	block.className = "vote-check-place";
 	const name = document.createElement("strong");
-	name.textContent = restaurant.name;
+	name.append(placeNameLink(restaurant));
 	const walk = document.createElement("span");
 	walk.textContent = "도보 약 " + restaurant.walkMinutes + "분\u00a0· " + formatDistance(restaurant.distance);
 	block.append(name, walk);
@@ -397,7 +398,7 @@ function renderResults() {
 		if (restaurant) {
 			const shop = document.createElement("span");
 			shop.className = "vote-option-restaurant";
-			shop.textContent = restaurant.name;
+			shop.append(placeNameLink(restaurant));
 			text.append(shop);
 		}
 		const count = document.createElement("span");
@@ -478,7 +479,7 @@ function candidateRow(name, index) {
 	if (restaurant) {
 		const shop = document.createElement("span");
 		shop.className = "vote-candidate-restaurant";
-		shop.textContent = restaurant.name;
+		shop.append(placeNameLink(restaurant));
 		place.append(shop, textButton("식당 떼기", name, () => {
 			restaurants = restaurants.map((other, i) => (i === index ? null : other));
 			renderDraft();
