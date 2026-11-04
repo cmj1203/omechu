@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test";
 import { freshImport } from "./helpers/dom.js";
+import { restoreSharedGoogle } from "./helpers/shared-state.js";
 import { MIN_REVIEWS, PRIOR_RATING, RATINGS_ENABLED, knownClosed, omechuRating } from "../js/place-rating.js";
 
 // 구글 지도 SDK 가짜. 스크립트를 붙이면 callback(window.omechuGoogleMapsReady)을 부르고, importLibrary("places") 는 Place 를 돌려줘요.
@@ -56,8 +57,7 @@ afterEach(() => {
 	warn.mockRestore();
 	now.mockRestore();
 	jest.useRealTimers();
-	delete window.google;
-	delete window.omechuGoogleMapsReady;
+	restoreSharedGoogle();
 });
 
 describe("omechuRating", () => {

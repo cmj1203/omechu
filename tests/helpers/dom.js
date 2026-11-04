@@ -15,6 +15,9 @@ if (!globalThis.happyDOM) {
 	});
 }
 
+// 함께 쓰는 모듈 상태(구글 SDK·회원 캐시)를 어느 파일이 먼저 돌든 같게 맞춰요. DOM 을 등록한 뒤에 불러야 해요.
+await import("./shared-state.js");
+
 // happy-dom 전역에는 new Option(글자) 생성자가 없어서, 브라우저와 같은 일(글자·값이 같은 option)을 하는 것을 둬요.
 if (typeof globalThis.Option !== "function") {
 	globalThis.Option = function Option(text = "") {
