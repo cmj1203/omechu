@@ -18,8 +18,8 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # 전국 인허가는 하루 한도 안에서 약 8,300쪽을 받느라 두 시간쯤 걸려요.
-    timeout-minutes: 240
+    # 전국 인허가는 건수 세기 약 1시간에 약 8,300쪽을 받느라 맥에서 5시간쯤 걸렸어요. GitHub 러너의 한 작업 한도는 360분이에요.
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: osmium·xlrd 설치

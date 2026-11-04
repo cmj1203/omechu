@@ -7,10 +7,12 @@
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
-BATCH_SIZE = 2000
+# 한 번에 많이 올리면 이름 색인을 정리하는 묶음이 DB 시간 제한(8초)을 넘어요(11-05 Actions 실패). 상가정보와 같이 500곳씩 올려요.
+BATCH_SIZE = 500
 
 
 def centroid(geometry):
@@ -78,11 +80,20 @@ def upload(rows):
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },
     )
-    try:
-        with urllib.request.urlopen(request, timeout=120):
-            pass
-    except urllib.error.HTTPError as error:
-        raise RuntimeError("업로드 실패: HTTP " + str(error.code) + " " + error.read().decode("utf-8", "replace")[:300]) from error
+    # 같은 가게 번호로 덮어쓰는 요청이라, DB 시간 제한(57014)에 걸리면 조금 쉬었다가 다시 보내도 돼요.
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            with urllib.request.urlopen(request, timeout=120):
+                return
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", "replace")[:300]
+            if error.code == 500 and '"57014"' in detail and attempt < 4:
+                print(f"DB 시간 제한에 걸려 {attempt * 10}초 뒤 다시 보내요", flush=True)
+                time.sleep(attempt * 10)
+                continue
+            raise RuntimeError("업로드 실패: HTTP " + str(error.code) + " " + detail) from error
 
 
 def main():
