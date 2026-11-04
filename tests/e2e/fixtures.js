@@ -77,15 +77,20 @@ class Query {
 		return { data: this.single ? out[0] ?? null : out, error: null };
 	}
 }
-// 같이 정하기 rpc 흉내(supabase/migrations/20261030130000_menu_poll_consensus.sql 과 같은 규칙). 투표는 localStorage 에 둬요.
+// 같이 정하기 rpc 흉내(supabase/migrations/20261030130000_menu_poll_consensus.sql · 20261104100000_menu_poll_restaurants.sql 과 같은 규칙). 투표는 localStorage 에 둬요.
+// 식당 객체가 어긋났는지는 DB 검사와 같은 잣대로 봐요: null 이거나 이름(1~80자)·좌표(숫자)가 있는 객체.
+const badRestaurant = (r) => r !== null && (typeof r !== "object" || typeof r.name !== "string" || !r.name || r.name.length > 80 || typeof r.lat !== "number" || typeof r.lng !== "number");
 function fakePoll(name, args) {
 	const polls = JSON.parse(localStorage.getItem("__fakepolls") || "{}");
 	const fail = (code, message) => ({ data: null, error: { code, message } });
 	const savePolls = () => localStorage.setItem("__fakepolls", JSON.stringify(polls));
 	if (name === "create_menu_poll") {
+		const given = args.p_restaurants ?? [];
+		if (!Array.isArray(given) || given.length > args.p_options.length || given.some(badRestaurant)) return fail("22023", "식당 정보가 올바르지 않아요.");
 		const id = crypto.randomUUID();
 		const host_token = crypto.randomUUID();
-		polls[id] = { options: args.p_options, area: { label: args.p_area_label, lat: args.p_area_lat, lng: args.p_area_lng }, host_token,
+		polls[id] = { options: args.p_options, restaurants: args.p_options.map((_, i) => given[i] ?? null),
+			area: { label: args.p_area_label, lat: args.p_area_lat, lng: args.p_area_lng }, host_token,
 			responses: {}, confirmed_index: null, expires_at: new Date(Date.now() + 86400000).toISOString() };
 		savePolls();
 		return { data: [{ id, host_token }], error: null };
@@ -98,7 +103,8 @@ function fakePoll(name, args) {
 		const mine = poll.responses[args.p_voter] ?? null;
 		const isHost = args.p_host_token === poll.host_token;
 		const open = mine !== null || isHost;
-		return { data: { id: args.p_poll, options: poll.options, area: poll.area, expires_at: poll.expires_at, confirmed_index: poll.confirmed_index,
+		// 식당 칸이 생기기 전에 만든 투표는 DB 기본값처럼 빈 배열이에요.
+		return { data: { id: args.p_poll, options: poll.options, restaurants: poll.restaurants ?? [], area: poll.area, expires_at: poll.expires_at, confirmed_index: poll.confirmed_index,
 			is_host: isHost, mine, responders: open ? answers.length : null,
 			counts: open ? poll.options.map((_, i) => answers.filter((a) => a.includes(i)).length) : null, common: open ? common : null }, error: null };
 	}

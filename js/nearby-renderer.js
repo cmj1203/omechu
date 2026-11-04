@@ -272,7 +272,7 @@ function phrase(...parts) {
 	return span;
 }
 
-function kakaoMapUrl(restaurant) {
+export function kakaoMapUrl(restaurant) {
 	return "https://map.kakao.com/link/map/" + kakaoLabel(restaurant.name) + "," + restaurant.lat + "," + restaurant.lng;
 }
 
@@ -293,7 +293,7 @@ function googleMapsUrl(menu, where) {
 	return base + encodeURIComponent(where ? where + " " + menu.name : menu.name);
 }
 
-function formatDistance(meters) {
+export function formatDistance(meters) {
 	return meters < 1000 ? meters + "m" : (meters / 1000).toFixed(1) + "km";
 }
 

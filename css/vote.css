@@ -48,31 +48,60 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.vote-chips {
-	display: flex;
-	flex-wrap: wrap;
+/* 후보 줄: 메뉴 이름과 ×가 한 줄, 그 아래에 붙은 식당 이름·'식당 떼기' 또는 '식당 붙이기' 글자 단추가 와요 */
+.vote-candidates {
+	display: grid;
 	gap: 8px;
 	margin: 0 0 12px;
 	padding: 0;
 	list-style: none;
 }
 
-.vote-chips:empty {
+.vote-candidates:empty {
 	display: none;
 }
 
-.vote-chip {
-	display: inline-flex;
+.vote-candidate {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
-	max-width: 100%;
-	min-height: 40px;
-	padding: 0 0 0 16px;
-	overflow-wrap: anywhere;
+	padding: 4px 4px 4px 16px;
 	border: 1px solid var(--hairline);
-	border-radius: var(--radius-full);
+	border-radius: var(--radius-md);
 	background: var(--canvas);
-	font-size: 15px;
+}
+
+.vote-candidate-name {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	overflow-wrap: anywhere;
+}
+
+/* 식당 줄은 이름 칸 아래에만 둬요(× 아래로 들어가면 위로 당긴 6px 이 ×의 누르는 곳을 가려요). 글자 단추의 안쪽 여백 12px 만큼 왼쪽으로 당겨 메뉴 이름과 글자 시작을 맞춰요 */
+.vote-candidate-place {
+	grid-column: 1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 4px;
+	margin: -6px 0 0;
+	padding-right: 12px;
+}
+
+.vote-candidate-place > .text-button:first-child {
+	margin-left: -12px;
+}
+
+.vote-candidate-restaurant {
+	min-width: 0;
+	color: var(--ink);
+	font-size: 14px;
 	font-weight: 600;
+	overflow-wrap: anywhere;
 }
 
 .vote-chip-remove {
@@ -80,8 +109,8 @@
 	display: inline-flex;
 	justify-content: center;
 	align-items: center;
-	width: 40px;
-	height: 40px;
+	width: 44px;
+	height: 44px;
 	border: 0;
 	border-radius: var(--radius-full);
 	background: transparent;
@@ -249,6 +278,44 @@
 	accent-color: var(--ink);
 }
 
+/* 식당이 붙은 줄은 여러 줄이라, 체크 상자를 메뉴 이름 줄에 맞춰요 */
+.vote-check.has-restaurant {
+	align-items: flex-start;
+	padding-top: 14px;
+	padding-bottom: 14px;
+}
+
+.vote-check.has-restaurant input {
+	margin-top: 1px;
+}
+
+.vote-check-body {
+	display: grid;
+	flex: 1;
+	gap: 6px;
+	min-width: 0;
+}
+
+/* 답하기 줄의 식당 칸: 식당 이름(15px 700), 도보 시간·거리와 주소(13px --ash), 지도 링크 */
+.vote-check-place {
+	display: grid;
+	gap: 2px;
+	justify-items: start;
+	color: var(--ash);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.vote-check-place strong {
+	color: var(--ink);
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.vote-map-link {
+	margin-top: 4px;
+}
+
 .vote-check:has(input:checked) {
 	border-color: var(--ink);
 	background: var(--cloud);
@@ -298,8 +365,19 @@
 	white-space: nowrap;
 }
 
-.vote-result .vote-option-name {
+/* 결과 줄의 메뉴 이름 아래에 붙은 식당 이름이 와요 */
+.vote-option-text {
+	display: grid;
 	flex: 1;
+	gap: 2px;
+	min-width: 0;
+}
+
+.vote-option-restaurant {
+	color: var(--ash);
+	font-size: 13px;
+	font-weight: 600;
+	overflow-wrap: anywhere;
 }
 
 .vote-result.is-common .vote-option-name::before {
@@ -343,6 +421,56 @@
 	margin-bottom: 16px;
 }
 
+/* 정한 뒤 식당 상자는 메뉴 추천의 추천 식당 상자(.restaurant-card)를 그대로 써요. 식당이 없으면 자리도 없어요 */
+.vote-confirmed-restaurant:empty {
+	display: none;
+}
+
+.vote-confirmed .restaurant-card {
+	margin: 0 0 4px;
+}
+
+/* 식당 고르는 창: 위치 찾기 창과 같은 모양이고, 지도·번호 대신 제목 줄과 식당 줄(이름·도보 시간·주소)만 있어요. 목록이 짧으면 창도 짧아요 */
+.restaurant-picker {
+	height: auto;
+	max-height: min(720px, calc(100dvh - 32px));
+}
+
+.restaurant-picker .place-picker-head {
+	align-items: center;
+}
+
+.restaurant-picker-title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	padding: 0 4px;
+	font-size: 16px;
+	font-weight: 800;
+	overflow-wrap: anywhere;
+}
+
+/* 창을 열 때 초점만 받는 제목이라 테두리를 그리지 않아요. Tab 을 누르면 '닫기'·식당 줄로 가요 */
+.restaurant-picker-title:focus {
+	outline: none;
+}
+
+.restaurant-picker .place-picker-results button {
+	grid-template-columns: minmax(0, 1fr);
+	gap: 2px;
+	min-height: 44px;
+}
+
+.restaurant-picker .place-pick-address {
+	grid-column: 1;
+}
+
+.place-pick-walk {
+	color: var(--ash);
+	font-size: 13px;
+	font-weight: 600;
+}
+
 .vote-actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -356,8 +484,12 @@
 	cursor: wait;
 }
 
+/* 정한 뒤 식당 상자의 길찾기·지도·공유 단추는 style.css 가 #nearbyResult 안에서만 그려서, 여기서 같은 모양으로 그려요 */
 .vote-share,
-.vote-link-button {
+.vote-link-button,
+.vote-map-link,
+.vote-confirmed .restaurant-links a,
+.vote-confirmed .restaurant-links button {
 	display: inline-flex;
 	align-items: center;
 	height: 40px;
@@ -375,7 +507,10 @@
 }
 
 .vote-share:focus-visible,
-.vote-link-button:focus-visible {
+.vote-link-button:focus-visible,
+.vote-map-link:focus-visible,
+.vote-confirmed .restaurant-links a:focus-visible,
+.vote-confirmed .restaurant-links button:focus-visible {
 	outline: 2px solid var(--focus);
 	outline-offset: 2px;
 }
@@ -414,8 +549,18 @@
 	}
 
 	.vote-share:hover,
-	.vote-link-button:hover {
+	.vote-link-button:hover,
+	.vote-map-link:hover,
+	.vote-confirmed .restaurant-links a:hover,
+	.vote-confirmed .restaurant-links button:hover {
 		border-color: var(--ink);
+	}
+}
+
+@media (max-width: 600px) {
+	.restaurant-picker {
+		height: 100dvh;
+		max-height: 100dvh;
 	}
 }
 
@@ -429,6 +574,38 @@
 		padding-right: 14px;
 		padding-left: 14px;
 		font-size: 16px;
+	}
+
+	.vote-candidate {
+		padding-left: 14px;
+	}
+
+	.vote-candidate-name {
+		font-size: 16px;
+	}
+
+	/* 식당 상자 단추는 추천 화면처럼 좌우 여백을 10px 로 줄여 360px 폭에서도 길찾기·지도가 한 줄에 들어가요 */
+	.vote-confirmed .restaurant-links a,
+	.vote-confirmed .restaurant-links button {
+		padding: 0 10px;
+	}
+
+	/* 40px 테두리 단추(지도 링크·공유·이걸로 정하기·식당 상자 단추): 보이는 높이는 그대로, 누르는 곳은 위아래 2px씩 넓혀 44px(추천 화면과 같은 방식) */
+	.vote-share,
+	.vote-map-link,
+	.vote-confirmed .restaurant-links a,
+	.vote-confirmed .restaurant-links button {
+		position: relative;
+	}
+
+	.vote-share::after,
+	.vote-map-link::after,
+	.vote-confirmed .restaurant-links a::after,
+	.vote-confirmed .restaurant-links button::after {
+		content: "";
+		position: absolute;
+		/* ::after 는 테두리 안쪽에서 재서 1px 테두리만큼 더 빼요 */
+		inset: -3px -1px;
 	}
 }
 

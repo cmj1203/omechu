@@ -265,7 +265,7 @@ function compactName(name) {
 	return name.toLowerCase().replace(/\s/g, "");
 }
 
-function metersBetween(a, b) {
+export function metersBetween(a, b) {
 	const dy = (a.lat - b.lat) * 111000;
 	const dx = (a.lng - b.lng) * 111000 * Math.cos((a.lat * Math.PI) / 180);
 	return Math.hypot(dx, dy);
