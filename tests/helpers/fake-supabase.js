@@ -4,17 +4,20 @@ import { mock } from "bun:test";
 
 const state = { client: null, calls: [], failure: null, configured: true };
 
-mock.module("../../js/supabase.js", () => ({
-	get SUPABASE_CONFIGURED() {
-		return state.configured;
-	},
-	getSupabase: async () => {
-		if (state.failure) {
-			throw state.failure;
-		}
-		return state.client;
-	},
-}));
+// bun 의 mock.module 은 getter 를 처음 값으로 굳혀서, 설정 값을 바꿀 때는 mock.module 을 다시 불러 바꿔 끼워요.
+function fakeModule() {
+	return {
+		SUPABASE_CONFIGURED: state.configured,
+		getSupabase: async () => {
+			if (state.failure) {
+				throw state.failure;
+			}
+			return state.client;
+		},
+	};
+}
+
+mock.module("../../js/supabase.js", fakeModule);
 
 // respond(params, call) 가 { data, error } 를 돌려줘요. call 은 같은 반경에서 몇 번째 부름인지(0부터)예요.
 export function useFakeRpc(respond) {
@@ -46,6 +49,7 @@ export function failSupabase(error) {
 // SUPABASE_CONFIGURED 값을 바꿔요. 화면 모듈은 불러올 때 이 값을 읽어서, 바꾼 뒤 모듈을 새로 불러와야 해요.
 export function setConfigured(configured) {
 	state.configured = configured;
+	mock.module("../../js/supabase.js", fakeModule);
 }
 
 // 표·RPC·로그인을 모두 가짜로 두는 클라이언트예요.
