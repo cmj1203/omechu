@@ -88,7 +88,7 @@ python3 -m http.server 8000
 ## 🧪 테스트
 
 ```
-npm ci                                       # 처음 한 번 (Playwright)
+npm ci                                       # 처음 한 번 (Playwright, 단위 테스트용 happy-dom)
 npx playwright install chromium              # 처음 한 번 (브라우저)
 npm test                                     # 화면 테스트: 바깥 서비스(Supabase·구글·카카오)는 가짜라 인터넷 없이 돌아요
 npm run test:unit                            # 단위 테스트(bun 필요): tests/*.test.js 만 돌려요. 인자 없는 bun test 는 tests/e2e 까지 집어 실패해요
@@ -164,6 +164,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보와 공무원 �
 | `account.html`, `js/account.js` | 내 계정: 일반 회원 가입 · 로그인, 즐겨찾기 · 최근 본 가게, 탈퇴 |
 | `js/member.js` | 회원 즐겨찾기 · 최근 본 가게 저장 (추천 화면에서 씀) |
 | `tests/e2e/`, `playwright.config.js` | 화면 테스트 (가짜 Supabase · 구글 · 카카오) |
+| `tests/*.test.js`, `tests/helpers/` | 단위 테스트 (bun, 가짜 DOM(happy-dom) · Supabase · 카카오) |
 | `tests/db/` | DB 테스트 (Supabase 흉내 + 마이그레이션 + SQL) |
 | `js/supabase.js` | Supabase 주소와 공개(publishable) 키 |
 | `css/style.css` | 화면 스타일 |

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# 서울시 본청(서울 열린데이터광장 odExpense)·은평구·서대문구·행정안전부 업무추진비에서 최근 2년 식사 자리를 가게별로 모아 Supabase official_picks 표를 새로 채워요.
-# 서대문구 엑셀(.xls)을 읽으려면 python 의 xlrd 가 필요해요. uv 가 있으면 uv 로 그때만 붙여 쓰고, 없으면 pip 로 깔아 둔 xlrd 를 써요.
+# 16개 기관(scripts/official_picks.py 의 AGENCY_ORDER: 서울시 본청(서울 열린데이터광장 odExpense), 서울 8개 구(은평·서대문·관악·강남·중·도봉·노원·양천),
+# 행정안전부, 부산광역시·대구광역시·대전광역시·광주·성남시·용인시)의 업무추진비에서 최근 2년 식사 자리를 가게별로 모아 Supabase official_picks 표를 새로 채워요.
+# 서대문구 등 여러 기관이 올리는 엑셀(.xls)을 읽으려면 python 의 xlrd 가 필요해요. uv 가 있으면 uv 로 그때만 붙여 쓰고, 없으면 pip 로 깔아 둔 xlrd 를 써요.
 # 가게 좌표는 상가(상권)정보에서 찾아요. 같은 작업 안에서 import-sbiz-places.sh 가 받아 둔 파일이 있으면 그걸 써요.
 # 필요한 것: python3(3.11 이상), SEOUL_OPENAPI_KEY · SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY (.env.local 이나 환경 변수)
 # DRY_RUN=1 bash scripts/import-official-picks.sh 로 돌리면 결과만 세고 DB는 건드리지 않아요.

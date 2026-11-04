@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""서울시 본청·은평구·서대문구·행정안전부 업무추진비 집행내역에서 식사 자리를 가게별로 모아 Supabase official_picks 표를 채워요.
+"""16개 기관(AGENCY_ORDER: 서울시 본청, 서울 8개 구(은평·서대문·관악·강남·중·도봉·노원·양천), 행정안전부,
+부산광역시·대구광역시·대전광역시·광주·성남시·용인시)의 업무추진비 집행내역에서 식사 자리를 가게별로 모아 Supabase official_picks 표를 채워요.
+서울시 본청·은평구·서대문구·행정안전부는 하나라도 못 읽으면 멈추고, 나머지 12개 기관(DISTRICTS)은 막힌 기관만 건너뛰어요.
 import-official-picks.sh 가 실행해요.
 
 사용법: python3 scripts/official_picks.py <상가정보.zip> <가져오기 시작 시각(ISO)>
