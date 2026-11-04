@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 오메추 탭 아이콘: 주색(--accent) 바탕에 흰 포크·숟가락 -->
+  <rect width="64" height="64" rx="14" fill="#e0204f"/>
+  <g fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 12v12"/>
+    <path d="M15 12v10a7 7 0 0 0 14 0V12"/>
+    <path d="M22 29v23"/>
+    <path d="M44 30v22"/>
+    <ellipse cx="44" cy="19" rx="7.5" ry="10"/>
+  </g>
+</svg>
