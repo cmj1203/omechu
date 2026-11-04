@@ -72,12 +72,13 @@ describe("searchRestaurants: 2km 안에서 고르기", () => {
 		expect(calls[1].params).toMatchObject({ p_terms: ["김치찌개", "치킨"], p_similar_amenities: [], p_categories: ["기타 간이/치킨"] });
 	});
 
-	test("가장 가까운 3곳 중에서 무작위로 고른다", async () => {
+	// 추천은 무작위 없이 고정이에요(평점을 모르면 모두 4.0으로 봐서 가장 가까운 곳). Math.random 값이 바뀌어도 결과가 같아야 해요.
+	test("Math.random 값과 상관없이 가장 가까운 곳을 고른다", async () => {
 		random.mockReturnValue(0.99);
-		answer({ 2000: { menu: [row("김치찌개 1", 100), row("김치찌개 2", 200), row("김치찌개 3", 300), row("김치찌개 4", 400)] } });
+		answer({ 2000: { menu: [row("김치찌개 3", 300), row("김치찌개 1", 100), row("김치찌개 4", 400), row("김치찌개 2", 200)] } });
 		const found = await searchRestaurants(kimchiStew, [kimchiStew], origin);
-		expect(found.pick.name).toBe("김치찌개 3");
-		expect(names(found.others)).toEqual(["김치찌개 1", "김치찌개 2", "김치찌개 4"]);
+		expect(found.pick.name).toBe("김치찌개 1");
+		expect(names(found.others)).toEqual(["김치찌개 2", "김치찌개 3", "김치찌개 4"]);
 	});
 
 	test("같은 메뉴 가게는 최대 8곳까지 보여 준다", async () => {
@@ -157,7 +158,7 @@ describe("searchRestaurants: 2km 안에서 고르기", () => {
 
 describe("searchRestaurants: 5km 로 넓혀 찾기", () => {
 	test("2km 안에 비슷한 가게뿐이고 5km 에서도 메뉴 가게가 없으면 2km 비슷한 가게를 고른다", async () => {
-		// 비슷한 가게는 DB 가 돌려준 순서(가까운 순) 그대로 앞 3곳에서 골라요.
+		// 비슷한 가게도 가까운 순으로 고르니(평점을 모를 때) 가장 가까운 백반집이에요.
 		const calls = answer({ 2000: { menu: [row("백반집", 50, { matched: false }), row("한식당", 100, { matched: false })] } });
 		const found = await searchRestaurants(kimchiStew, [kimchiStew], origin);
 		expect(found).toMatchObject({ mode: "similar", searchedKm: 5 });
