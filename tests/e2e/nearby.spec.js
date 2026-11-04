@@ -87,13 +87,13 @@ test.describe("주변 식당 추천", () => {
 		await expect(page.locator(".restaurant-card")).toBeVisible();
 		await expect(page.locator("#nearbyPlace")).toHaveValue("서울 중구 세종대로 110");
 		await expect(link).toBeVisible();
-		// 결과 상자의 마지막 자식으로, 추천 식당 상자 아래에 같은 폭으로 놓여요.
+		// 결과 상자의 마지막 자식으로, 추천 식당 상자 아래에 글자 폭만큼의 작은 알약으로 놓여요(상자 폭의 절반보다 좁고 40px).
 		expect(await link.evaluate((element) => element.parentElement.className + "/" + (element === element.parentElement.lastElementChild))).toBe("result-box/true");
 		const card = await page.locator(".restaurant-card").boundingBox();
 		const box = await link.boundingBox();
 		expect(box.y).toBeGreaterThan(card.y + card.height);
-		expect(Math.abs(box.width - card.width)).toBeLessThanOrEqual(1);
-		expect(box.height).toBeGreaterThanOrEqual(44);
+		expect(box.width).toBeLessThan(card.width / 2);
+		expect(Math.round(box.height)).toBe(40);
 		// 누르는 순간 후보 3개·모일 곳·보여 준 추천 식당을 주소에 담아요. 여기서는 넘어가지 않게 막고 주소만 봐요.
 		await link.evaluate((element) => element.addEventListener("click", (event) => event.preventDefault(), { once: true }));
 		await link.click();
@@ -117,6 +117,26 @@ test.describe("주변 식당 추천", () => {
 		await page.locator("#storeQuery").press("Enter");
 		await expect(page.locator(".others")).toBeVisible();
 		await expect(link).toBeHidden();
+	});
+});
+
+test.describe("위치 권한이 없을 때", () => {
+	test.use({ permissions: [] });
+
+	test("위치를 몰라 안내문만 보일 때는 추천 기준 칩이 없고, 위치를 고르면 식당과 함께 나온다", async ({ page }) => {
+		await page.goto("/index.html");
+		await page.locator("#recommend:not([disabled])").click();
+		await expect(page.locator(".menu-name")).toBeVisible();
+		// 위치를 모르면 식당 칸은 비어 있고(위치 칸에 적으라는 뜻), 고를 기준도 없어요.
+		await expect(page.locator("#nearby")).toBeVisible();
+		await expect(page.locator("#nearbyResult")).toBeEmpty();
+		await expect(page.locator("#nearbyOrder")).toBeHidden();
+		await page.locator("#nearbyPlace").click();
+		await page.locator(".place-picker-form input").fill("강남역");
+		await page.locator(".place-picker-form button").click();
+		await page.locator(".place-picker-results button").first().click();
+		await expect(page.locator(".restaurant-card")).toBeVisible();
+		await expect(page.locator("#nearbyOrder")).toBeVisible();
 	});
 });
 

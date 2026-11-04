@@ -1255,24 +1255,31 @@ a.text-button {
 	text-wrap: balance;
 }
 
-/* '친구랑 같이 정하기': 결과 상자 맨 아래, 추천 식당 상자와 같은 폭(최대 560px)의 흰 단추예요(위치 칸과 같은 48px·--radius-md).
-   메뉴를 보여 줄 때만 보이고, 추천 전 슬롯·가게/메뉴 검색 목록·안내문일 때는 숨겨요. 48px라 휴대폰에서도 누르는 곳을 따로 넓히지 않아요 */
+/* '친구랑 같이 정하기': 결과 상자 맨 아래의 작은 알약 단추(글자 폭만큼, 40px). 지금 메뉴·위치·추천 식당을 담아 넘겨요.
+   메뉴를 보여 줄 때만 보이고, 추천 전 슬롯·가게/메뉴 검색 목록·안내문일 때는 숨겨요. 추천 없이 가려면 위 탭의 '같이 정하기'를 써요.
+   누르는 곳은 투명한 ::after 로 위아래 4px씩 넓혀 48px(사용자 11-04 '단추가 쓸데없이 커') */
 .poll-link {
-	display: flex;
+	position: relative;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 100%;
-	max-width: 560px;
-	height: 48px;
+	height: 40px;
 	margin: 16px auto 0;
+	padding: 0 18px;
 	border: 1px solid var(--hairline);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-full);
 	background: var(--canvas);
 	color: var(--ink);
-	font-size: 15px;
+	font-size: 14px;
 	font-weight: 600;
 	text-decoration: none;
 	transition: border-color 0.15s ease-out;
+}
+
+.poll-link::after {
+	content: "";
+	position: absolute;
+	inset: -4px 0;
 }
 
 @media (hover: hover) {

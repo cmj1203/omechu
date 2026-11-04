@@ -13,6 +13,7 @@ const menuQuery = document.getElementById("menuQuery");
 const result = document.getElementById("result");
 const skippedDetails = document.getElementById("skippedMenus");
 // '친구랑 같이 정하기'는 결과 상자 맨 아래에 있고, 메뉴를 보여 줄 때만 보여요(showMenu). 그 밖의 결과(슬롯·검색·안내)에서는 숨겨요.
+// 추천 없이 같이 정하기로 가는 길은 위 탭의 '같이 정하기'예요(사용자 11-04). 이 단추는 지금 메뉴·위치·추천 식당을 담아 넘기는 지름길이에요.
 const pollLink = document.getElementById("pollLink");
 // 같이 정하기로 넘길 후보 이름. 메뉴를 보여 줄 때 정해 두고, 누를 때 위치·식당을 붙여요.
 let pollMenus = [];

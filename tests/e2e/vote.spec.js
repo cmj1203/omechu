@@ -24,6 +24,19 @@ async function becomeHost(page, voter) {
 	await page.reload();
 }
 
+test("추천 없이도 위 탭 '같이 정하기'로 들어가 후보를 직접 적어 만든다", async ({ page }) => {
+	await page.goto("/index.html");
+	await page.locator("nav.tabs").getByRole("link", { name: "같이 정하기" }).click();
+	await expect(page).toHaveURL(/\/vote\.html$/);
+	await expect(page.locator("nav.tabs a[aria-current='page']")).toHaveText("같이 정하기");
+	await expect(page.locator("#createView")).toBeVisible();
+	await expect(page.locator(".vote-candidate-name")).toHaveCount(0);
+	await expect(page.locator("#createButton")).toBeDisabled();
+	await page.locator("#optionInput").fill("김밥");
+	await page.locator("#addButton").click();
+	await expect(page.locator(".vote-candidate-name")).toHaveText(["김밥"]);
+});
+
 test("후보와 모일 곳으로 만들고, 모두 먹을 수 있는 메뉴만 방장이 정해 그 지역 식당으로 간다", async ({ page }) => {
 	await recommend(page);
 	await expect(page.locator("#nearbyPlace")).toHaveValue("서울 중구 세종대로 110");

@@ -111,8 +111,8 @@ export function initNearby(section) {
 		placeNote.hidden = true;
 		shownPick = null;
 		result.replaceChildren();
-		// 평점을 못 묻는(구글 키 없음) 때와 가게·메뉴 검색 목록에서는 추천 기준을 고를 일이 없어요.
-		orderChoices.hidden = !RATINGS_ENABLED || listMode;
+		// 추천 기준 칩은 추천 식당이 실제로 보일 때(render)만 보여요. 위치가 없어 안내문만 보이거나 찾는 중일 때는 숨겨요(사용자 11-04).
+		orderChoices.hidden = true;
 		section.hidden = false;
 		if (originLookup) {
 			findRestaurants(false, true);
@@ -275,6 +275,8 @@ export function initNearby(section) {
 			return;
 		}
 		shownPick = found.pick;
+		// 평점을 못 묻는(구글 키 없음) 때는 고를 기준이 거리뿐이라 칩을 두지 않아요. 가게·메뉴 검색 목록은 renderList 라 여기 오지 않아요.
+		orderChoices.hidden = !RATINGS_ENABLED;
 		const nodes = [];
 		if (found.wider) {
 			nodes.push(paragraph("nearby-note", "2km 안에 맞는 가게가 없어서 5km까지 찾았어요."));
@@ -300,6 +302,7 @@ export function initNearby(section) {
 
 	function showMessage(text, target, where) {
 		shownPick = null;
+		orderChoices.hidden = true;
 		result.replaceChildren(paragraph("nearby-message", text), footer(target, where));
 	}
 }
