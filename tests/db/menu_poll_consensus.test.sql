@@ -107,4 +107,63 @@ begin
   end if;
 end $$;
 
+-- 후보별 식당(20261104100000_menu_poll_restaurants.sql): 붙은 것·없는 것·짧은 배열 채움·잘못된 것
+do $$
+declare
+  poll uuid;
+  state jsonb;
+  shop jsonb := '{"key": "가게|37.5|127.0", "name": "목포생태찌개", "address": "서울 중구 1", "phone": null, "lat": 37.5, "lng": 127.0, "extra": 1}';
+begin
+  -- 옛 4인자 호출도 되고 식당은 null 로 채워져요
+  select id into poll from public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0);
+  state := public.menu_poll_state(poll, 'friend-aaaa');
+  if state->'restaurants' <> '[null, null]'::jsonb then
+    raise exception 'FAIL: 식당 없이 만들었는데 restaurants 가 달라요: %', state;
+  end if;
+
+  -- 식당 하나 + 짧은 배열은 null 로 채워요. 모르는 칸(extra)은 버려요.
+  select id into poll from public.create_menu_poll(array['가', '나', '다'], '시청역', 37.5, 127.0, jsonb_build_array(shop, null));
+  state := public.menu_poll_state(poll, 'friend-aaaa');
+  if jsonb_array_length(state->'restaurants') <> 3
+     or state->'restaurants'->0->>'name' <> '목포생태찌개'
+     or state->'restaurants'->0 ? 'extra'
+     or state->'restaurants'->0->'phone' <> 'null'::jsonb
+     or state->'restaurants'->1 <> 'null'::jsonb
+     or state->'restaurants'->2 <> 'null'::jsonb then
+    raise exception 'FAIL: 식당이 저장되지 않았어요: %', state;
+  end if;
+
+  -- null 인자도 후보 수만큼 채워요
+  select id into poll from public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0, null);
+  if public.menu_poll_state(poll, 'friend-aaaa')->'restaurants' <> '[null, null]'::jsonb then
+    raise exception 'FAIL: null 식당 인자가 채워지지 않았어요';
+  end if;
+
+  -- 잘못된 식당은 거절: 이름 없음, 위도 범위 밖, 후보보다 긴 배열, 배열이 아님
+  begin
+    perform public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0, jsonb_build_array(shop - 'name'));
+    raise exception 'FAIL: 이름 없는 식당이 만들어졌어요';
+  exception when sqlstate '22023' then
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  begin
+    perform public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0, jsonb_build_array(shop || '{"lat": 91}'));
+    raise exception 'FAIL: 위도 91 식당이 만들어졌어요';
+  exception when sqlstate '22023' then
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  begin
+    perform public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0, jsonb_build_array(null, null, shop));
+    raise exception 'FAIL: 후보보다 긴 식당 배열이 만들어졌어요';
+  exception when sqlstate '22023' then
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  begin
+    perform public.create_menu_poll(array['가', '나'], '시청역', 37.5, 127.0, shop);
+    raise exception 'FAIL: 배열이 아닌 식당이 만들어졌어요';
+  exception when sqlstate '22023' then
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+end $$;
+
 rollback;
