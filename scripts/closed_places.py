@@ -51,8 +51,8 @@ NATIONAL_CACHE: Final = Path(tempfile.gettempdir()) / "omechu-closed-national"
 NATIONAL_CACHE_SECONDS: Final = 7 * 24 * 3600
 # 건수 세기가 한 번에 30초씩 걸려서, 센 건수를 저장해 두고 다시 실행해도 구간을 다시 나누지 않아요.
 NATIONAL_COUNTS: Final = NATIONAL_CACHE / "counts.json"
-# 자료는 실행 중에도 조금씩 바뀌어요(11-05 전국 영업 4시간에 43건). 구간 합과 전체 건수가 이만큼은 어긋나도 넘어가요.
-NATIONAL_SPLIT_SLACK: Final = 200
+# 자료는 실행 중에도 조금씩 바뀌어요(11-05 전국 영업 4시간에 43건). 구간의 합을 한꺼번에 다시 세어 맞추는 횟수예요.
+NATIONAL_VERIFY_TRIES: Final = 5
 # 받는 사이 건수가 바뀐 구간을 다시 받는 회차의 최대 수. 넘으면 멈추고, 다음 날 실행이 이어 받아요.
 NATIONAL_ROUNDS: Final = 5
 # 429가 이만큼 이어지면 하루 한도로 보고 풀릴 때까지 기다려요. 이 시각까지 안 풀리면 멈추고 다음 실행이 이어 받아요.
@@ -123,6 +123,7 @@ class NationalBody(BaseModel):
 class NationalCounts(BaseModel):
     since: str
     totals: dict[str, int] = {}
+    verified: list[str] = []
 
 
 class NationalHeader(BaseModel):
@@ -361,10 +362,28 @@ def count_rows(conditions: dict[str, str], counts: NationalCounts) -> int:
     key = json.dumps(conditions, sort_keys=True)
     if key not in counts.totals:
         counts.totals[key] = national_body(conditions, 1, 1).totalCount
-        temp = NATIONAL_COUNTS.with_suffix(".tmp")
-        _ = temp.write_text(counts.model_dump_json(), encoding="utf-8")
-        _ = temp.replace(NATIONAL_COUNTS)
+        save_counts(counts)
     return counts.totals[key]
+
+
+def save_counts(counts: NationalCounts) -> None:
+    temp = NATIONAL_COUNTS.with_suffix(".tmp")
+    _ = temp.write_text(counts.model_dump_json(), encoding="utf-8")
+    _ = temp.replace(NATIONAL_COUNTS)
+
+
+def verify_split(label: str, everything: dict[str, str], chunks: list[dict[str, str]]) -> None:
+    # 날짜가 비어 구간에서 빠지는 자료가 생기면 영업 기록을 놓쳐 엉뚱한 가게를 숨길 수 있어요.
+    # 구간 나누기는 오래 걸려 그사이 건수가 바뀌므로, 마지막에 한꺼번에 다시 세어 정확히 맞는지 봐요.
+    for _ in range(NATIONAL_VERIFY_TRIES):
+        with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
+            expected, *totals = pool.map(lambda conditions: national_body(conditions, 1, 1).totalCount, [everything, *chunks])
+        if expected > 0 and sum(totals) == expected:
+            return
+        print(f"전국 {label} 구간 합 {sum(totals):,}건, 전체 {expected:,}건이라 다시 세요.", flush=True)
+    # 저장한 건수를 지워야 다음 실행이 구간을 새로 나눠요.
+    NATIONAL_COUNTS.unlink(missing_ok=True)
+    raise RuntimeError(f"전국 {label} 자료를 날짜 구간으로 나눈 합이 전체와 달라서 중단해요.")
 
 
 def date_chunks(field: str, base: dict[str, str], start: date, end: date, counts: NationalCounts) -> Iterator[tuple[dict[str, str], int]]:
@@ -427,6 +446,8 @@ def download_chunks(chunks: list[dict[str, str]]) -> None:
         download_pages([(conditions, page) for conditions, total in zip(unfinished, totals)
                         for page in range(1, math.ceil(total / 100) + 1)
                         if not page_path(conditions, total, page).exists()], len(chunks))
+    if all(complete_total(conditions) is not None for conditions in chunks):
+        return
     raise RuntimeError(f"전국 자료 건수가 계속 바뀌어서 {NATIONAL_ROUNDS}번 받아도 구간을 다 못 맞췄어요.")
 
 
@@ -462,14 +483,12 @@ def national_licenses() -> Iterator[License]:
     )
     chunks: list[tuple[dict[str, str], int]] = []
     for label, field, base, start, everything in groups:
-        expected = count_rows(everything, counts)
         found = list(date_chunks(field, base, start, date(2100, 1, 1), counts))
-        # 날짜가 비어 구간에서 빠지는 자료가 생기면 영업 기록을 놓쳐 엉뚱한 가게를 숨길 수 있어요.
-        if expected <= 0 or abs(sum(total for _, total in found) - expected) > NATIONAL_SPLIT_SLACK:
-            # 저장한 건수를 지워야 다음 실행이 같은 숫자로 또 멈추지 않아요.
-            NATIONAL_COUNTS.unlink(missing_ok=True)
-            raise RuntimeError(f"전국 {label} 자료를 날짜 구간으로 나눈 합이 전체와 달라서 중단해요.")
-        print(f"전국 일반음식점 {label}: {expected:,}건, {len(found)}구간", flush=True)
+        if label not in counts.verified:
+            verify_split(label, everything, [conditions for conditions, _ in found])
+            counts.verified.append(label)
+            save_counts(counts)
+        print(f"전국 일반음식점 {label}: {sum(total for _, total in found):,}건, {len(found)}구간", flush=True)
         chunks += found
     download_chunks([conditions for conditions, _ in chunks])
     # 전체 응답을 메모리에 쌓지 않게 저장한 쪽을 하나씩 읽어요.
