@@ -47,10 +47,11 @@ NATIONAL_CHUNK: Final = 20_000
 NATIONAL_WORKERS: Final = 12
 # 받은 쪽을 디스크에 남겨서, 멈추거나 하루 한도에 걸려도 다음 실행은 못 받은 쪽만 받아요. 끝나면 지워요.
 NATIONAL_CACHE: Final = Path(tempfile.gettempdir()) / "omechu-closed-national"
-NATIONAL_CACHE_SECONDS: Final = 2 * 24 * 3600
+# 서버 장애로 멈추면 다음 날 이어 받아요. 여러 날에 나눠 받아도 앞서 받은 쪽이 지워지지 않게 7일 둬요.
+NATIONAL_CACHE_SECONDS: Final = 7 * 24 * 3600
 NATIONAL_ERRORS: Final[Counter[str]] = Counter()
-# 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버가 몇 분씩 504를 내는 때가 있어서 최대 약 8분까지 기다려요.
-NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240)
+# 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버 전체가 504를 내는 때가 있어서(11-05 15시대에는 1쪽도 504) 한 쪽에 1시간 넘게 기다려요.
+NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240, 600, 600, 600, 600, 600, 600)
 SBIZ_LAG: Final = timedelta(days=120)
 TRANSFORM: Final = Transformer.from_crs("EPSG:5174", "EPSG:4326", always_xy=True)
 
