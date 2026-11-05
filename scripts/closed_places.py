@@ -55,6 +55,10 @@ NATIONAL_COUNTS: Final = NATIONAL_CACHE / "counts.json"
 NATIONAL_SPLIT_SLACK: Final = 200
 # 받는 사이 건수가 바뀐 구간을 다시 받는 회차의 최대 수. 넘으면 멈추고, 다음 날 실행이 이어 받아요.
 NATIONAL_ROUNDS: Final = 5
+# 429가 이만큼 이어지면 하루 한도로 보고 풀릴 때까지 기다려요. 이 시각까지 안 풀리면 멈추고 다음 실행이 이어 받아요.
+NATIONAL_QUOTA_TRIES: Final = 5
+NATIONAL_QUOTA_GIVE_UP_HOUR: Final = 3
+KST: Final = timezone(timedelta(hours=9))
 NATIONAL_ERRORS: Final[Counter[str]] = Counter()
 # 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버 전체가 504를 내는 때가 있어서(11-05 15시대에는 1쪽도 504) 한 쪽에 1시간 넘게 기다려요.
 NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240, 600, 600, 600, 600, 600, 600)
@@ -206,7 +210,9 @@ def request_bytes(method: str, url: str, body: bytes | None = None,
                                body=body, headers=headers or {})
             response = connection.getresponse()
             if not 200 <= response.status < 300:
-                raise RuntimeError(f"자료 {method} 요청 실패: HTTP {response.status}")
+                # 본문에서 공식 한도 코드만 꺼내요. 본문 전체는 인증키가 섞일 수 있어서 찍지 않아요.
+                code = re.search(rb"LIMITED_NUMBER_OF_SERVICE_REQUESTS_[A-Z_]+", response.read(4096))
+                raise RuntimeError(f"자료 {method} 요청 실패: HTTP {response.status}" + (f" {code[0].decode()}" if code else ""))
             return response.read()
         finally:
             connection.close()
@@ -295,14 +301,31 @@ def seoul_licenses() -> Iterator[License]:
                             yield license_row
 
 
+def quota_give_up(now: datetime) -> datetime:
+    day = now.date() + timedelta(days=0 if now.hour < NATIONAL_QUOTA_GIVE_UP_HOUR else 1)
+    return datetime.combine(day, datetime.min.time(), KST).replace(hour=NATIONAL_QUOTA_GIVE_UP_HOUR)
+
+
+def seconds_until_quota(now: datetime) -> int:
+    # 하루 한도는 자정 뒤 순차로 풀려요. 00:05부터 10분마다 다시 불러요.
+    first = now.replace(hour=0, minute=5, second=0, microsecond=0)
+    if now >= first and now.hour < NATIONAL_QUOTA_GIVE_UP_HOUR:
+        return 600
+    if now >= first:
+        first += timedelta(days=1)
+    return math.ceil((first - now).total_seconds())
+
+
 def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> NationalBody:
     query = urllib.parse.urlencode({
         "serviceKey": urllib.parse.unquote(os.environ["DATA_GO_KR_KEY"]),
         "pageNo": page, "numOfRows": rows, "returnType": "json", **conditions,
     })
     error = ""
+    tries = 0
+    give_up: datetime | None = None
     # 서버가 가끔 HTTP_ERROR나 504를 주므로, 전체 실행을 버리지 않게 같은 페이지만 다시 불러요.
-    for wait in (*NATIONAL_RETRY_WAITS, 0):
+    while tries <= len(NATIONAL_RETRY_WAITS):
         try:
             payload = get_json(NATIONAL_URL + "?" + query, TypeAdapter(NationalPayload)).response
             if str(payload.header.resultCode) in {"00", "0"}:
@@ -311,6 +334,16 @@ def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> Nat
         except RuntimeError as failure:
             error = str(failure)
         NATIONAL_ERRORS[error] += 1
+        wait = NATIONAL_RETRY_WAITS[tries] if tries < len(NATIONAL_RETRY_WAITS) else 0
+        tries += 1
+        if tries >= NATIONAL_QUOTA_TRIES and "HTTP 429" in error and "PER_SECOND" not in error:
+            now = datetime.now(KST)
+            give_up = give_up or quota_give_up(now)
+            if now >= give_up:
+                break
+            wait = seconds_until_quota(now)
+            # 한도를 기다리는 동안에는 다시 부르는 횟수를 쓰지 않아요.
+            tries = NATIONAL_QUOTA_TRIES
         if wait:
             print(f"전국 인허가 {page}쪽 실패({error}), {wait}초 뒤 다시 불러요.", flush=True)
         time.sleep(wait)
