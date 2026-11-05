@@ -49,6 +49,10 @@ NATIONAL_WORKERS: Final = 12
 NATIONAL_CACHE: Final = Path(tempfile.gettempdir()) / "omechu-closed-national"
 # 서버 장애로 멈추면 다음 날 이어 받아요. 여러 날에 나눠 받아도 앞서 받은 쪽이 지워지지 않게 7일 둬요.
 NATIONAL_CACHE_SECONDS: Final = 7 * 24 * 3600
+# 건수 세기가 한 번에 30초씩 걸려서, 센 건수를 저장해 두고 다시 실행해도 구간을 다시 나누지 않아요.
+NATIONAL_COUNTS: Final = NATIONAL_CACHE / "counts.json"
+# 자료는 실행 중에도 조금씩 바뀌어요(11-05 전국 영업 4시간에 43건). 구간 합과 전체 건수가 이만큼은 어긋나도 넘어가요.
+NATIONAL_SPLIT_SLACK: Final = 200
 NATIONAL_ERRORS: Final[Counter[str]] = Counter()
 # 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버 전체가 504를 내는 때가 있어서(11-05 15시대에는 1쪽도 504) 한 쪽에 1시간 넘게 기다려요.
 NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240, 600, 600, 600, 600, 600, 600)
@@ -108,6 +112,11 @@ class NationalItems(BaseModel):
 class NationalBody(BaseModel):
     totalCount: int
     items: NationalItems
+
+
+class NationalCounts(BaseModel):
+    since: str
+    totals: dict[str, int] = {}
 
 
 class NationalHeader(BaseModel):
@@ -300,48 +309,65 @@ def national_body(conditions: dict[str, str], page: int, rows: int = 100) -> Nat
         except RuntimeError as failure:
             error = str(failure)
         NATIONAL_ERRORS[error] += 1
+        if wait:
+            print(f"전국 인허가 {page}쪽 실패({error}), {wait}초 뒤 다시 불러요.", flush=True)
         time.sleep(wait)
     raise RuntimeError(f"전국 인허가 {page}쪽을 {len(NATIONAL_RETRY_WAITS) + 1}번 불러도 실패해서 중단해요: {error}")
 
 
-def date_chunks(field: str, base: dict[str, str], start: date, end: date) -> Iterator[tuple[dict[str, str], int]]:
+def load_counts() -> NationalCounts:
+    try:
+        return NationalCounts.model_validate_json(NATIONAL_COUNTS.read_bytes())
+    except FileNotFoundError:
+        return NationalCounts(since=(date.today() - timedelta(days=NATIONAL_CLOSED_DAYS)).isoformat())
+
+
+def count_rows(conditions: dict[str, str], counts: NationalCounts) -> int:
+    key = json.dumps(conditions, sort_keys=True)
+    if key not in counts.totals:
+        counts.totals[key] = national_body(conditions, 1, 1).totalCount
+        temp = NATIONAL_COUNTS.with_suffix(".tmp")
+        _ = temp.write_text(counts.model_dump_json(), encoding="utf-8")
+        _ = temp.replace(NATIONAL_COUNTS)
+    return counts.totals[key]
+
+
+def date_chunks(field: str, base: dict[str, str], start: date, end: date, counts: NationalCounts) -> Iterator[tuple[dict[str, str], int]]:
     # 서버는 날짜 칸을 글자 순서로 비교하고 대부분 '2024-05-01' 형식이라, 경계도 같은 형식으로 넣어야 구간이 고르게 나뉜요.
     conditions = {**base, f"cond[{field}::GTE]": start.isoformat(), f"cond[{field}::LT]": end.isoformat()}
-    total = national_body(conditions, 1, 1).totalCount
+    total = count_rows(conditions, counts)
+    print(f"전국 구간 나누기 {field} {start}~{end}: {total:,}건 {time.strftime('%H:%M')} 실패 {dict(NATIONAL_ERRORS)}", flush=True)
     if total <= NATIONAL_CHUNK or (end - start).days <= 1:
         if total:
             yield conditions, total
         return
     middle = start + timedelta(days=(end - start).days // 2)
-    yield from date_chunks(field, base, start, middle)
-    yield from date_chunks(field, base, middle, end)
+    yield from date_chunks(field, base, start, middle, counts)
+    yield from date_chunks(field, base, middle, end, counts)
 
 
-def page_path(conditions: dict[str, str], total: int, page: int) -> Path:
-    # 건수가 바뀐 구간은 쪽 경계가 밀리므로, 이름에 건수를 넣어 옛 쪽을 쓰지 않고 다시 받아요.
+def page_path(conditions: dict[str, str], page: int) -> Path:
+    # 건수는 이름에 넣지 않아요. 건수가 몇 건 바뀔 때마다 구간 전체를 다시 받으면 하루 한도 안에 끝나지 않아서예요.
+    # 쪽 경계가 밀리면 영업 기록이 바뀐 건수만큼 빠질 수 있어요. 전체 67만 건에서 그 정도는 다음 달에 바로잡혀요.
     key = hashlib.sha256(json.dumps(conditions, sort_keys=True).encode()).hexdigest()[:16]
-    return NATIONAL_CACHE / f"{key}-{total}-{page}.json"
+    return NATIONAL_CACHE / f"{key}-{page}.json"
 
 
 def save_page(conditions: dict[str, str], total: int, page: int) -> None:
     body = national_body(conditions, page)
     rows = body.items.item
-    if body.totalCount != total:
-        raise RuntimeError("전국 자료 총건수가 실행 중 바뀌어서 동기화를 중단해요.")
-    if len(rows) != min(100, total - (page - 1) * 100):
+    if abs(body.totalCount - total) > max(100, total // 100):
+        raise RuntimeError(f"전국 자료 건수가 {total:,}건에서 {body.totalCount:,}건으로 크게 바뀌어서 동기화를 중단해요.")
+    if len(rows) != min(100, max(0, body.totalCount - (page - 1) * 100)):
         raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
-    path = page_path(conditions, total, page)
+    path = page_path(conditions, page)
     temp = path.with_suffix(".tmp")
     _ = temp.write_bytes(TypeAdapter(list[NationalInput]).dump_json(rows))
     _ = temp.replace(path)
 
 
 def download_pages(pages: list[tuple[dict[str, str], int, int]]) -> None:
-    NATIONAL_CACHE.mkdir(parents=True, exist_ok=True)
-    for old in NATIONAL_CACHE.iterdir():
-        if time.time() - old.stat().st_mtime > NATIONAL_CACHE_SECONDS:
-            old.unlink()
-    missing = [item for item in pages if not page_path(*item).exists()]
+    missing = [item for item in pages if not page_path(item[0], item[2]).exists()]
     print(f"전국 인허가 받을 쪽: {len(missing):,}/{len(pages):,}쪽, 일꾼 {NATIONAL_WORKERS}개", flush=True)
     with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
         futures = [pool.submit(save_page, *item) for item in missing]
@@ -359,7 +385,12 @@ def download_pages(pages: list[tuple[dict[str, str], int, int]]) -> None:
 
 def national_licenses() -> Iterator[License]:
     """공식 Swagger의 100건 제한과 전국 필드명을 서울 공통 형식으로 맞춰요."""
-    since = date.today() - timedelta(days=NATIONAL_CLOSED_DAYS)
+    NATIONAL_CACHE.mkdir(parents=True, exist_ok=True)
+    for old in NATIONAL_CACHE.iterdir():
+        if time.time() - old.stat().st_mtime > NATIONAL_CACHE_SECONDS:
+            old.unlink()
+    counts = load_counts()
+    since = date.fromisoformat(counts.since)
     active = {"cond[SALS_STTS_CD::EQ]": "01"}
     # 끝을 먼 날로 잡아서 '20261019'처럼 형식이 다른 날짜도 어느 구간엔가 들어가게 해요.
     groups: tuple[tuple[str, str, dict[str, str], date, dict[str, str]], ...] = (
@@ -368,10 +399,12 @@ def national_licenses() -> Iterator[License]:
     )
     chunks: list[tuple[dict[str, str], int]] = []
     for label, field, base, start, everything in groups:
-        expected = national_body(everything, 1, 1).totalCount
-        found = list(date_chunks(field, base, start, date(2100, 1, 1)))
+        expected = count_rows(everything, counts)
+        found = list(date_chunks(field, base, start, date(2100, 1, 1), counts))
         # 날짜가 비어 구간에서 빠지는 자료가 생기면 영업 기록을 놓쳐 엉뚱한 가게를 숨길 수 있어요.
-        if expected <= 0 or sum(total for _, total in found) != expected:
+        if expected <= 0 or abs(sum(total for _, total in found) - expected) > NATIONAL_SPLIT_SLACK:
+            # 저장한 건수를 지워야 다음 실행이 같은 숫자로 또 멈추지 않아요.
+            NATIONAL_COUNTS.unlink(missing_ok=True)
             raise RuntimeError(f"전국 {label} 자료를 날짜 구간으로 나눈 합이 전체와 달라서 중단해요.")
         print(f"전국 일반음식점 {label}: {expected:,}건, {len(found)}구간", flush=True)
         chunks += found
@@ -380,7 +413,7 @@ def national_licenses() -> Iterator[License]:
     # 전체 응답을 메모리에 쌓지 않게 저장한 쪽을 하나씩 읽어요.
     adapter = TypeAdapter(list[NationalInput])
     for item in pages:
-        for row in adapter.validate_json(page_path(*item).read_bytes()):
+        for row in adapter.validate_json(page_path(item[0], item[2]).read_bytes()):
             license_row = parse_license(LicenseInput(
                 BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
                 DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
