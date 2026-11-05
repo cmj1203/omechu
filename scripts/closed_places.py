@@ -53,6 +53,8 @@ NATIONAL_CACHE_SECONDS: Final = 7 * 24 * 3600
 NATIONAL_COUNTS: Final = NATIONAL_CACHE / "counts.json"
 # 자료는 실행 중에도 조금씩 바뀌어요(11-05 전국 영업 4시간에 43건). 구간 합과 전체 건수가 이만큼은 어긋나도 넘어가요.
 NATIONAL_SPLIT_SLACK: Final = 200
+# 받는 사이 건수가 바뀐 구간을 다시 받는 회차의 최대 수. 넘으면 멈추고, 다음 날 실행이 이어 받아요.
+NATIONAL_ROUNDS: Final = 5
 NATIONAL_ERRORS: Final[Counter[str]] = Counter()
 # 실패한 페이지를 다시 부르기 전에 쉬는 초. 서버 전체가 504를 내는 때가 있어서(11-05 15시대에는 1쪽도 504) 한 쪽에 1시간 넘게 기다려요.
 NATIONAL_RETRY_WAITS: Final = (15, 30, 60, 120, 240, 600, 600, 600, 600, 600, 600)
@@ -346,31 +348,59 @@ def date_chunks(field: str, base: dict[str, str], start: date, end: date, counts
     yield from date_chunks(field, base, middle, end, counts)
 
 
-def page_path(conditions: dict[str, str], page: int) -> Path:
-    # 건수는 이름에 넣지 않아요. 건수가 몇 건 바뀔 때마다 구간 전체를 다시 받으면 하루 한도 안에 끝나지 않아서예요.
-    # 쪽 경계가 밀리면 영업 기록이 바뀐 건수만큼 빠질 수 있어요. 전체 67만 건에서 그 정도는 다음 달에 바로잡혀요.
-    key = hashlib.sha256(json.dumps(conditions, sort_keys=True).encode()).hexdigest()[:16]
-    return NATIONAL_CACHE / f"{key}-{page}.json"
+def chunk_key(conditions: dict[str, str]) -> str:
+    return hashlib.sha256(json.dumps(conditions, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def save_page(conditions: dict[str, str], total: int, page: int) -> None:
+def page_path(conditions: dict[str, str], total: int, page: int) -> Path:
+    # 건수가 바뀌면 쪽 경계가 밀리므로, 이름에 건수를 넣어 같은 건수로 받은 쪽끼리만 합쳐요.
+    return NATIONAL_CACHE / f"{chunk_key(conditions)}-{total}-{page}.json"
+
+
+def complete_total(conditions: dict[str, str]) -> int | None:
+    # 모든 쪽을 같은 건수로 받은 구간은 그때의 온전한 모습이라, 나중에 건수가 바뀌어도 다시 받지 않아요.
+    pages: defaultdict[int, set[int]] = defaultdict(set)
+    for path in NATIONAL_CACHE.glob(f"{chunk_key(conditions)}-*.json"):
+        _, total, page = path.stem.split("-")
+        pages[int(total)].add(int(page))
+    for total, found in pages.items():
+        if found.issuperset(range(1, math.ceil(total / 100) + 1)):
+            return total
+    return None
+
+
+def save_page(conditions: dict[str, str], page: int) -> None:
     body = national_body(conditions, page)
     rows = body.items.item
-    if abs(body.totalCount - total) > max(100, total // 100):
-        raise RuntimeError(f"전국 자료 건수가 {total:,}건에서 {body.totalCount:,}건으로 크게 바뀌어서 동기화를 중단해요.")
     if len(rows) != min(100, max(0, body.totalCount - (page - 1) * 100)):
         raise RuntimeError("전국 인허가 페이지 일부가 빠져서 동기화를 중단해요.")
-    path = page_path(conditions, page)
+    # 받는 사이 건수가 바뀌면 그 건수의 쪽으로 남아요. 그 구간은 다음 회차에 새 건수로 마저 받아요.
+    path = page_path(conditions, body.totalCount, page)
     temp = path.with_suffix(".tmp")
     _ = temp.write_bytes(TypeAdapter(list[NationalInput]).dump_json(rows))
     _ = temp.replace(path)
 
 
-def download_pages(pages: list[tuple[dict[str, str], int, int]]) -> None:
-    missing = [item for item in pages if not page_path(item[0], item[2]).exists()]
-    print(f"전국 인허가 받을 쪽: {len(missing):,}/{len(pages):,}쪽, 일꾼 {NATIONAL_WORKERS}개", flush=True)
+def download_chunks(chunks: list[dict[str, str]]) -> None:
+    for _ in range(NATIONAL_ROUNDS):
+        unfinished = [conditions for conditions in chunks if complete_total(conditions) is None]
+        if not unfinished:
+            return
+        with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
+            totals = list(pool.map(lambda conditions: national_body(conditions, 1, 1).totalCount, unfinished))
+        for conditions, total in zip(unfinished, totals):
+            if not total:
+                _ = page_path(conditions, 0, 1).write_bytes(b"[]")
+        download_pages([(conditions, page) for conditions, total in zip(unfinished, totals)
+                        for page in range(1, math.ceil(total / 100) + 1)
+                        if not page_path(conditions, total, page).exists()], len(chunks))
+    raise RuntimeError(f"전국 자료 건수가 계속 바뀌어서 {NATIONAL_ROUNDS}번 받아도 구간을 다 못 맞췄어요.")
+
+
+def download_pages(missing: list[tuple[dict[str, str], int]], chunk_count: int) -> None:
+    print(f"전국 인허가 받을 쪽: {len(missing):,}쪽(전체 {chunk_count}구간), 일꾼 {NATIONAL_WORKERS}개", flush=True)
     with ThreadPoolExecutor(max_workers=NATIONAL_WORKERS) as pool:
-        futures = [pool.submit(save_page, *item) for item in missing]
+        futures = [pool.submit(save_page, conditions, page) for conditions, page in missing]
         try:
             for done, future in enumerate(as_completed(futures), 1):
                 future.result()
@@ -408,19 +438,22 @@ def national_licenses() -> Iterator[License]:
             raise RuntimeError(f"전국 {label} 자료를 날짜 구간으로 나눈 합이 전체와 달라서 중단해요.")
         print(f"전국 일반음식점 {label}: {expected:,}건, {len(found)}구간", flush=True)
         chunks += found
-    pages = [(conditions, total, page) for conditions, total in chunks for page in range(1, math.ceil(total / 100) + 1)]
-    download_pages(pages)
+    download_chunks([conditions for conditions, _ in chunks])
     # 전체 응답을 메모리에 쌓지 않게 저장한 쪽을 하나씩 읽어요.
     adapter = TypeAdapter(list[NationalInput])
-    for item in pages:
-        for row in adapter.validate_json(page_path(item[0], item[2]).read_bytes()):
-            license_row = parse_license(LicenseInput(
-                BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
-                DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
-                SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
-            ), "national")
-            if license_row:
-                yield license_row
+    for conditions, _ in chunks:
+        total = complete_total(conditions)
+        if total is None:
+            raise RuntimeError("전국 인허가 구간을 다 받지 못했어요.")
+        for page in range(1, math.ceil(total / 100) + 1):
+            for row in adapter.validate_json(page_path(conditions, total, page).read_bytes()):
+                license_row = parse_license(LicenseInput(
+                    BPLCNM=row.BPLC_NM, TRDSTATENM=row.SALS_STTS_NM,
+                    DCBYMD=row.CLSBIZ_YMD, RDNWHLADDR=row.ROAD_NM_ADDR,
+                    SITEWHLADDR=row.LOTNO_ADDR, X=row.CRD_INFO_X, Y=row.CRD_INFO_Y,
+                ), "national")
+                if license_row:
+                    yield license_row
 
 
 def places(box: tuple[float, float, float, float]) -> Iterator[Place]:

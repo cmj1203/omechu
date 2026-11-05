@@ -118,7 +118,7 @@ GitHub Actions가 매달 자동으로 두 출처의 식당 정보를 다시 받�
 | 항목 | 내용 |
 |------|------|
 | 언제 | 매일 아침 6시에 깨어나서, 2일이 지났고 이번 달 성공 기록이 없는 단계만 돌아요. 맥이 꺼져 있었거나 실패하면 성공할 때까지 다음 날 6시에 다시 해요. 6시에 자고 있었으면 깨어날 때 돌아요 |
-| 설치 | `./scripts/install-refresh-on-mac.sh` (한 번만) |
+| 설치 | `brew install uv` 후 `./scripts/install-refresh-on-mac.sh` (한 번만) |
 | 걸리는 시간 | 약 6시간 |
 | 결과 보기 | 맥 알림, `~/Library/Logs/omechu-monthly-refresh.log` |
 | 바로 돌리기 | `~/Library/Application Support/omechu/` 의 `official-picks-done`, `closed-places-done` 을 지우고 `./scripts/refresh-on-mac.sh` |

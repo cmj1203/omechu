@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.." || exit 1
 STATE="$HOME/Library/Application Support/omechu"
 MONTH="$(date +%Y-%m)"
 
-if [ "$(date +%-d)" -lt 2 ]; then
+if [ "$(date +%e)" -lt 2 ]; then
 	exit 0
 fi
 is_done() {
