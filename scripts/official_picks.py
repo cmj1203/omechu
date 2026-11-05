@@ -349,7 +349,7 @@ def district_records(since, today):
         jobs.append((name, process, queue))
         print(f"{name} 업무추진비 받기 시작", flush=True)
     deadline = time.monotonic() + DISTRICT_TIMEOUT
-    records = []
+    records, skipped = [], []
     for name, process, queue in jobs:
         try:
             status, value = queue.get(timeout=max(1, deadline - time.monotonic()))
@@ -363,7 +363,8 @@ def district_records(since, today):
             print(f"{name} 업무추진비 {len(value):,}건 받음", flush=True)
         else:
             print(f"{name} 업무추진비를 건너뛰어요: {value}", flush=True)
-    return records
+            skipped.append(name)
+    return records, skipped
 
 
 def main():
@@ -374,7 +375,8 @@ def main():
     records += local_expenses.eunpyeong(since)
     records += local_expenses.seodaemun(since, today)
     records += local_expenses.mois(since)
-    records += district_records(since, today)
+    district, skipped = district_records(since, today)
+    records += district
     by_agency = collections.Counter(record["agency"] for record in records)
     print("업무추진비 받음: " + ", ".join(f"{agency} {by_agency[agency]:,}건" for agency in AGENCY_ORDER), flush=True)
     picks, counts = build_picks(records, food_stores(zip_path), imported_at, today)
@@ -385,6 +387,9 @@ def main():
         return
     upload(picks)
     print(f"완료: 맛집 {len(picks):,}곳", flush=True)
+    # 기관이 빠진 채 지우면 그 기관 가게가 사라져요(11-05 6,929곣 → 5,312곳). 실패로 끝내서 import-official-picks.sh 가 지우기 전에 멈추게 해요.
+    if skipped:
+        sys.exit("못 받은 기관이 있어 지난 목록을 지우지 않아요: " + ", ".join(skipped))
 
 
 if __name__ == "__main__":
